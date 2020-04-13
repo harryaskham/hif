@@ -23,6 +23,7 @@ runApp = do
       liftIO $ TIO.putStr "> "
       instruction <- liftIO TIO.getLine
       runInstruction instruction
+      runWatchers
       loop
 
 main :: IO ()

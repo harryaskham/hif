@@ -98,15 +98,32 @@ instance Default Entity where
                , _toDown=Nothing
                }
 
+type AlertID = Text
+type Alert = Text
+
 data GameState = GameState { _entities :: Map EntityID Entity
                            , _descriptions :: Map EntityID (GameState -> EntityID -> Text)
                            , _clock :: Integer
+                           , _alerts :: Map AlertID Alert
+                           , _watchers :: [GameState -> GameState]
                            }
 makeLenses ''GameState
 
 -- TODO: Somehow move back to monadig
 -- TODO: Figure out how to remove duplication with the above circular reference
 type Description = GameState -> EntityID -> Text
+-- TODO: Figure out as per above, should be monadic and avoid circular reference
+type Watcher = (GameState -> GameState)
+
+-- Add a watcher to the game checking for things. Run every turn.
+addWatcher :: (MonadState GameState m) => Watcher -> m ()
+addWatcher w = modify $ \s -> s & watchers %~ (w:)
+
+-- Run all watchers
+runWatchers :: (MonadState GameState m) => m ()
+runWatchers = do
+  ws <- gets (view watchers)
+  modify $ foldl (.) id ws
 
 type Speech = Text
 
@@ -172,6 +189,8 @@ mkGameState :: GameState
 mkGameState = GameState { _entities=M.empty
                         , _descriptions=M.empty
                         , _clock=0
+                        , _alerts=M.empty
+                        , _watchers=[]
                         }
 
 mkPlayer :: (MonadState GameState m) => Name -> EntityID -> m Entity
@@ -234,8 +253,20 @@ modifyEntity f eID = do
 addDesc :: (MonadState GameState m) => EntityID -> Description -> m ()
 addDesc eID d = modify $ \s -> s & descriptions %~ M.insert eID d
 
+-- Adds a given alert.
+addAlert :: (MonadState GameState m) => AlertID -> Alert -> m ()
+addAlert aID a = modify $ \s -> s & alerts %~ M.insert aID a
+
+-- Removes the given alert.
+removeAlert :: (MonadState GameState m) => AlertID -> m ()
+removeAlert aID = modify $ \s -> s & alerts %~ M.delete aID
+
 buildSimpleGame :: (MonadState GameState m) => m ()
 buildSimpleGame = do
+  addAlert "Alert1" "This is an alert for 4 turns"
+  let watcher st = if st^.clock == 5 then st & alerts %~ M.delete "Alert1" else st
+  addWatcher watcher
+
   southRoom <- mkLocation "South Room" 
   let southRoomDesc st eID = "This is " <> (e^.?name) <> " at time " <> showt (st^.clock)
         where
@@ -287,9 +318,13 @@ describeCurrentTurn = do
   es <- getEntitiesAt (l^.?entityID)
   clock <- gets (view clock)
   lDesc <- getDescription $ l^.?entityID
+  alertsMap <- gets (view alerts)
   let clockrow = Just $ "The time is " <> showt clock
       header = Just $ "You are at " <> l^.?name
       desc = Just lDesc
+      alerts = case snd <$> M.toList alertsMap of
+                 [] -> Nothing
+                 as -> Just $ T.intercalate "\n" as
       thingsHere =
         case length es of
           0 -> Nothing
@@ -311,7 +346,7 @@ describeCurrentTurn = do
       , (toDown, "Below you")
       ]
 
-  return $ T.intercalate "\n" (catMaybes [clockrow, header, desc, thingsHere] ++ directions)
+  return $ T.intercalate "\n" (catMaybes [clockrow, header, desc, alerts, thingsHere] ++ directions)
 
 -- Handle input, potentially running an instruction and modifying game state.
 runInstruction :: (MonadState GameState m, MonadIO m) => Text -> m ()
