@@ -39,7 +39,7 @@ data EntityID = EntityID EntityType Integer deriving (Eq, Show, Ord)
 type Name = Text
 type Target = Text
 type Description = Text
-type Inventory = [EntityID]
+type Inventory = Set EntityID
 
 data StorableState = Storable
                    | Unstorable
@@ -57,11 +57,16 @@ data PotableState = Potable
                   | Unpotable
                   deriving (Eq, Show)
 
+data DroppableState = Droppable
+                    | Undroppable
+                    deriving (Eq, Show)
+
 data Entity = Entity { _entityID :: Maybe EntityID
                      , _name :: Maybe Name
                      , _targets :: Maybe (Set Target)
                      , _description :: Maybe Description
                      , _storable :: StorableState
+                     , _droppable :: DroppableState
                      , _usable :: UsableState
                      , _edible :: EdibleState
                      , _potable :: PotableState
@@ -82,6 +87,7 @@ instance Default Entity where
                , _targets=Nothing
                , _description=Nothing
                , _storable=Unstorable
+               , _droppable=Droppable
                , _usable=Unusable
                , _edible=Inedible
                , _potable=Unpotable
@@ -171,7 +177,7 @@ mkPlayer name locationID description = do
   let player = def { _entityID=Just playerID
                    , _name=Just name
                    , _locationID=Just locationID
-                   , _inventory=Just []
+                   , _inventory=Just S.empty
                    , _description=Just description
                    }
   registerEntity player
@@ -350,6 +356,14 @@ parseGet = do
   eof
   return $ Get (T.pack target)
 
+parseDrop :: Parser Instruction
+parseDrop = do
+  string "drop" <|> string "put down"
+  spaces
+  target <- many1 anyChar
+  eof
+  return $ Drop (T.pack target)
+
 parseWait :: Parser Instruction
 parseWait = do
   string "wait" <|> string "do nothing"
@@ -361,13 +375,14 @@ instructionParser =
   try parseGo
   <|> try parseInventory
   <|> try parseGet
+  <|> try parseDrop
   <|> try parseWait
 
 -- Parse out the instruction from the given text string
 parseInstruction :: Text -> Maybe Instruction
 parseInstruction iText =
   case parse instructionParser "" (T.unpack iText) of
-    Left e -> error $ show e
+    Left e -> Nothing
     Right i -> Just i
 
 -- Run f to modify the player.
@@ -396,6 +411,14 @@ filterByTarget t = filter (\e -> t `S.member` (e^.?targets))
 getTargetedEntitiesNearPlayer :: (MonadState GameState m) => Target -> m [Entity]
 getTargetedEntitiesNearPlayer t = filterByTarget t <$> getEntitiesNearPlayer
 
+getInventoryEntities :: (MonadState GameState m) => m [Entity]
+getInventoryEntities = do
+  p <- getPlayer
+  traverse getEntity (S.toList $ p^.?inventory)
+
+filterInventoryByTarget :: (MonadState GameState m) => Target -> m [Entity]
+filterInventoryByTarget t = filterByTarget t <$> getInventoryEntities
+
 enactInstruction :: (MonadState GameState m, MonadIO m) => Instruction -> m ()
 enactInstruction (Go dir) = do
   l <- getPlayerLocation
@@ -414,17 +437,33 @@ enactInstruction (Get target) = do
       if (e^.?locationID) == (p^.?locationID) && e^.storable == Storable
          then do
            modifyEntity (set locationID Nothing) (e^.?entityID)
-           modifyPlayer (over inventory (fmap (e^.?entityID:)))
+           modifyPlayer (over inventory (fmap (S.insert $ e^.?entityID)))
+           incrementClock
            liftIO $ TIO.putStrLn $ "You get the " <> target
          else
            liftIO $ TIO.putStrLn $ "Cannot get " <> (e^.?name)
+enactInstruction (Drop target) = do
+  l <- getPlayerLocation
+  es <- filterInventoryByTarget target
+  case es of
+    [] -> liftIO $ TIO.putStrLn $ "No " <> target <> " to drop."
+    es -> do
+      let e = head es
+      if e^.droppable == Droppable
+         then do
+           modifyEntity (set locationID (l^.entityID)) (e^.?entityID)
+           modifyPlayer (over inventory (fmap (S.delete $ e^.?entityID)))
+           incrementClock
+           liftIO $ TIO.putStrLn $ "You drop the " <> target
+        else
+          liftIO $ TIO.putStrLn $ e^.?name <> " cannot be dropped"
 enactInstruction Inventory = do
   p <- getPlayer
-  case p^.?inventory of
-    [] -> liftIO $ TIO.putStrLn "Your inventory is empty."
-    eIDs -> do
-      es <- getEntities eIDs
-      liftIO $ TIO.putStrLn $ T.intercalate "\n" ((^.?name) <$> es)
+  case S.size (p^.?inventory) of
+    0 -> liftIO $ TIO.putStrLn "Your inventory is empty."
+    _ -> do
+      es <- getInventoryEntities
+      liftIO $ TIO.putStrLn $ "You have: " <> T.intercalate "\n" ((^.?name) <$> es)
 enactInstruction Wait = do
   incrementClock
   liftIO $ TIO.putStrLn "You wait idly."
