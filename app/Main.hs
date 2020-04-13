@@ -7,16 +7,23 @@ import Control.Monad.IO.Class
 import Game
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
+import Control.Monad
 
 type App = StateT GameState IO
 
 runApp :: App ()
 runApp = do
   buildSimpleGame
-  env <- get
-  -- liftIO $ print env
-  ct <- describeCurrentTurn
-  liftIO $ TIO.putStrLn ct
+  loop
+  where
+    loop :: App ()
+    loop = do
+      ct <- describeCurrentTurn
+      liftIO $ TIO.putStrLn ct
+      liftIO $ TIO.putStr "> "
+      instruction <- liftIO TIO.getLine
+      runInstruction instruction
+      loop
 
 main :: IO ()
 main = do

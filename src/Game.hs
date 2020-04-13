@@ -11,9 +11,9 @@ import Data.Maybe
 import qualified Data.Map.Strict as M
 import Data.Map.Strict (Map)
 import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
 import Data.Text (Text)
 import TextShow
-
 
 -- Unsafely lens into a Maybe
 (^.?) :: s -> Getting (Maybe a) s (Maybe a) -> a
@@ -92,25 +92,36 @@ makeLenses ''GameState
 
 type Speech = Text
 
-data Instruction e = GoNorth
-                   | GoEast
-                   | GoSouth
-                   | GoWest
-                   | GoUp
-                   | GoDown
-                   | Wait
-                   | Use e
-                   | Get e
-                   | Drop e
-                   | Eat e
-                   | Drink e
-                   | Say Speech 
-                   | SayTo e Speech
-                   | Give e e
-                   | Take e e
-                   | Look
-                   | LookAt e
-                   | Inventory
+data Direction = DirNorth
+               | DirEast
+               | DirSouth
+               | DirWest
+               | DirUp
+               | DirDown
+
+instance TextShow Direction where
+  showb DirNorth = "North"
+  showb DirEast = "East"
+  showb DirSouth = "South"
+  showb DirWest = "West"
+  showb DirUp = "upwards"
+  showb DirDown = "downwards"
+
+data Instruction' e = Go Direction
+                    | Wait
+                    | Use e
+                    | Get e
+                    | Drop e
+                    | Eat e
+                    | Drink e
+                    | Say Speech 
+                    | SayTo e Speech
+                    | Give e e
+                    | Take e e
+                    | Look
+                    | LookAt e
+                    | Inventory
+type Instruction = Instruction' Entity
 
 getAllEntities :: (MonadState GameState m) => EntityType -> m [Entity]
 getAllEntities et = do
@@ -179,11 +190,11 @@ mkRock :: (MonadState GameState m) => EntityID -> m Entity
 mkRock locationID = do
   rockID <- newID Rock
   let rock = def { _entityID=Just rockID
-                  , _name=Just "a rock"
-                  , _locationID=Just locationID
-                  , _description=Just "A big ol' rock"
-                  , _storable=Storable
-                  }
+                 , _name=Just "a rock"
+                 , _locationID=Just locationID
+                 , _description=Just "A big ol' rock"
+                 , _storable=Storable
+                 }
   registerEntity rock
   return rock
 
@@ -192,14 +203,6 @@ registerEntity :: (MonadState GameState m) => Entity -> m ()
 registerEntity e = do
   es <- gets (view entities)
   modify $ \s -> s & entities %~ M.insert (e^.?entityID) e
-
--- Run a step of the game.
--- If the instruction is invalid, maybe don't step time?
--- Run the instruction, run any activity for the entities in the game,
--- update clock.
--- TODO: Maybe put this inside the monad
-stepGame :: Maybe (Instruction Entity) -> GameState -> GameState
-stepGame instruction game = undefined
 
 -- Modify the given entity persisted in the state.
 modifyEntity :: (MonadState GameState m) => (Entity -> Entity) -> EntityID -> m ()
@@ -230,16 +233,28 @@ getPlayer = do
     [e] -> return e
     _ -> error "Multiple Players defined"
 
+-- Get the location of the player
+getPlayerLocation :: (MonadState GameState m) => m Entity
+getPlayerLocation = do
+  p <- getPlayer
+  getEntity $ p^.?locationID
+
+-- TODO: Smarter location descriptions that build the things into the text.
+-- Description should be a function that builds text, rather than just text.
+-- So should name. These can be consts for now.
 describeCurrentTurn :: (MonadState GameState m) => m Text
 describeCurrentTurn = do
   p <- getPlayer
   l <- getEntity $ p^.?locationID
   es <- getEntitiesAt (l^.?entityID)
   clock <- gets (view clock)
-  let clockrow = "The time is " <> showt clock
-      header = "You are at " <> l^.?name
-      desc = l^.?description
-      thingsHere = "You can see: " <> T.intercalate ", " ((^.?name) <$> es)
+  let clockrow = Just $ "The time is " <> showt clock
+      header = Just $ "You are at " <> l^.?name
+      desc = Just $ l^.?description
+      thingsHere =
+        case length es of
+          0 -> Nothing
+          _ -> Just $ "You can see: " <> T.intercalate ", " ((^.?name) <$> es)
   directions <-
     sequence 
     $ mapMaybe
@@ -257,4 +272,38 @@ describeCurrentTurn = do
       , (toDown, "Below you")
       ]
 
-  return $ T.intercalate "\n" ([clockrow, header, desc, thingsHere] ++ directions)
+  return $ T.intercalate "\n" (catMaybes [clockrow, header, desc, thingsHere] ++ directions)
+
+-- Handle input, potentially running an instruction and modifying game state.
+runInstruction :: (MonadState GameState m, MonadIO m) => Text -> m ()
+runInstruction instructionText =
+  case parseInstruction instructionText of
+    (Just i) -> enactInstruction i
+    Nothing -> do
+      liftIO $ TIO.putStrLn "Invalid instruction"
+      return ()
+
+-- Parse out the instruction from the given text string
+parseInstruction :: Text -> Maybe Instruction
+parseInstruction "n" = Just $ Go DirNorth
+parseInstruction "s" = Just $ Go DirSouth
+parseInstruction _ = Nothing
+
+-- Run f to modify the player.
+modifyPlayer f = do
+  p <- getPlayer
+  modifyEntity f (p^.?entityID)
+
+lensForDir DirNorth = toNorth
+lensForDir DirEast = toEast
+lensForDir DirSouth = toSouth
+lensForDir DirWest = toWest
+lensForDir DirUp = toUp
+lensForDir DirDown = toDown
+
+enactInstruction :: (MonadState GameState m, MonadIO m) => Instruction -> m ()
+enactInstruction (Go dir) = do
+  l <- getPlayerLocation
+  case l^.lensForDir dir of
+    Just lID -> modifyPlayer (set locationID (Just lID))
+    Nothing -> liftIO $ TIO.putStrLn $ "Cannot travel " <> showt dir <> "."
