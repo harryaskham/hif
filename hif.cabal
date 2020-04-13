@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 96b9c46b16de3fa28d46586d33904f9ea5628d3828680bb8278d8c9df2aad9ee
+-- hash: 07221b18f63f9138eb2519f8d97e3cdd3c025987b4afd99d82b18fb761106f2a
 
 name:           hif
 version:        0.1.0.0
@@ -40,6 +40,7 @@ library
     , lens
     , listsafe
     , mtl
+    , parsec
     , random
     , text
     , text-show
@@ -64,6 +65,7 @@ executable hif-exe
     , lens
     , listsafe
     , mtl
+    , parsec
     , random
     , text
     , text-show
@@ -89,6 +91,7 @@ test-suite hif-test
     , lens
     , listsafe
     , mtl
+    , parsec
     , random
     , text
     , text-show

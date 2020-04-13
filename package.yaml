@@ -33,6 +33,7 @@ dependencies:
 - transformers
 - text
 - text-show
+- parsec
 
 library:
   source-dirs: src

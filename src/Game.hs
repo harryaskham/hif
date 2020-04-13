@@ -10,10 +10,18 @@ import Data.Default
 import Data.Maybe
 import qualified Data.Map.Strict as M
 import Data.Map.Strict (Map)
+import qualified Data.Set as S
+import Data.Set (Set)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Text (Text)
 import TextShow
+
+import Text.Parsec
+import Text.Parsec.Char
+import Text.Parsec.String (Parser)
+import Control.Monad (void)
+import Data.Char (isLetter, isDigit)
 
 -- Unsafely lens into a Maybe
 (^.?) :: s -> Getting (Maybe a) s (Maybe a) -> a
@@ -26,12 +34,12 @@ data EntityType = Player
                 deriving (Eq, Show, Ord)
 
 -- A unique ID for each type of entity
-data EntityID = PlayerID
-              | EntityID EntityType Integer deriving (Eq, Show, Ord)
+data EntityID = EntityID EntityType Integer deriving (Eq, Show, Ord)
 
 type Name = Text
+type Target = Text
 type Description = Text
-type Inventory = [Entity]
+type Inventory = [EntityID]
 
 data StorableState = Storable
                    | Unstorable
@@ -51,6 +59,7 @@ data PotableState = Potable
 
 data Entity = Entity { _entityID :: Maybe EntityID
                      , _name :: Maybe Name
+                     , _targets :: Maybe (Set Target)
                      , _description :: Maybe Description
                      , _storable :: StorableState
                      , _usable :: UsableState
@@ -70,6 +79,7 @@ makeLenses ''Entity
 instance Default Entity where
   def = Entity { _entityID=Nothing
                , _name=Nothing
+               , _targets=Nothing
                , _description=Nothing
                , _storable=Unstorable
                , _usable=Unusable
@@ -107,21 +117,20 @@ instance TextShow Direction where
   showb DirUp = "upwards"
   showb DirDown = "downwards"
 
-data Instruction' e = Go Direction
-                    | Wait
-                    | Use e
-                    | Get e
-                    | Drop e
-                    | Eat e
-                    | Drink e
-                    | Say Speech 
-                    | SayTo e Speech
-                    | Give e e
-                    | Take e e
-                    | Look
-                    | LookAt e
-                    | Inventory
-type Instruction = Instruction' Entity
+data Instruction = Go Direction
+                 | Wait
+                 | Use Target
+                 | Get Target
+                 | Drop Target
+                 | Eat Target
+                 | Drink Target
+                 | Say Speech 
+                 | SayTo Target Speech
+                 | Give Target Target
+                 | Take Target Target
+                 | Look
+                 | LookAt Target
+                 | Inventory
 
 getAllEntities :: (MonadState GameState m) => EntityType -> m [Entity]
 getAllEntities et = do
@@ -134,6 +143,9 @@ getEntity eID = do
   es <- gets (view entities)
   let (Just l) = M.lookup eID es
   return l
+
+getEntities :: (MonadState GameState m) => [EntityID] -> m [Entity]
+getEntities = traverse getEntity
 
 -- Get all entities at a given location.
 -- Should usually not include the player itself
@@ -193,6 +205,7 @@ mkRock locationID = do
                  , _name=Just "a rock"
                  , _locationID=Just locationID
                  , _description=Just "A big ol' rock"
+                 , _targets=Just $ S.fromList ["rock", "stone"]
                  , _storable=Storable
                  }
   registerEntity rock
@@ -283,11 +296,79 @@ runInstruction instructionText =
       liftIO $ TIO.putStrLn "Invalid instruction"
       return ()
 
+parseGo :: Parser Instruction
+parseGo =
+  try parseNorth
+  <|> try parseSouth
+  <|> try parseEast
+  <|> try parseWest
+  <|> try parseUp
+  <|> try parseDown
+
+anyString strs = foldl1 (<|>) ((\s -> try (string s >> eof)) <$> strs)
+
+parseNorth :: Parser Instruction
+parseNorth = do
+  anyString ["n", "north"]
+  return $ Go DirNorth
+
+parseSouth :: Parser Instruction
+parseSouth = do
+  anyString ["s", "south"]
+  return $ Go DirSouth
+
+parseEast :: Parser Instruction
+parseEast = do
+  anyString ["e", "east"]
+  return $ Go DirEast
+
+parseWest :: Parser Instruction
+parseWest = do
+  anyString ["w", "west"]
+  return $ Go DirWest
+
+parseUp :: Parser Instruction
+parseUp = do
+  anyString ["u", "up"]
+  return $ Go DirUp
+
+parseDown :: Parser Instruction
+parseDown = do
+  anyString ["d", "down"]
+  return $ Go DirDown
+
+parseInventory :: Parser Instruction
+parseInventory = do
+  anyString ["i", "inv", "inventory"]
+  return Inventory
+
+parseGet :: Parser Instruction
+parseGet = do
+  string "get" <|> string "pick up"
+  spaces
+  target <- many1 anyChar
+  eof
+  return $ Get (T.pack target)
+
+parseWait :: Parser Instruction
+parseWait = do
+  string "wait" <|> string "do nothing"
+  eof
+  return Wait
+
+instructionParser :: Parser Instruction
+instructionParser =
+  try parseGo
+  <|> try parseInventory
+  <|> try parseGet
+  <|> try parseWait
+
 -- Parse out the instruction from the given text string
 parseInstruction :: Text -> Maybe Instruction
-parseInstruction "n" = Just $ Go DirNorth
-parseInstruction "s" = Just $ Go DirSouth
-parseInstruction _ = Nothing
+parseInstruction iText =
+  case parse instructionParser "" (T.unpack iText) of
+    Left e -> error $ show e
+    Right i -> Just i
 
 -- Run f to modify the player.
 modifyPlayer f = do
@@ -301,9 +382,49 @@ lensForDir DirWest = toWest
 lensForDir DirUp = toUp
 lensForDir DirDown = toDown
 
+incrementClock :: MonadState GameState m => m ()
+incrementClock = modify $ over clock (+1)
+
+getEntitiesNearPlayer :: (MonadState GameState m) => m [Entity]
+getEntitiesNearPlayer = do
+  p <- getPlayer
+  getEntitiesAt (p^.?locationID)
+
+filterByTarget :: Target -> [Entity] -> [Entity]
+filterByTarget t = filter (\e -> t `S.member` (e^.?targets))
+
+getTargetedEntitiesNearPlayer :: (MonadState GameState m) => Target -> m [Entity]
+getTargetedEntitiesNearPlayer t = filterByTarget t <$> getEntitiesNearPlayer
+
 enactInstruction :: (MonadState GameState m, MonadIO m) => Instruction -> m ()
 enactInstruction (Go dir) = do
   l <- getPlayerLocation
   case l^.lensForDir dir of
-    Just lID -> modifyPlayer (set locationID (Just lID))
+    Just lID -> do
+      modifyPlayer (set locationID (Just lID))
+      incrementClock
     Nothing -> liftIO $ TIO.putStrLn $ "Cannot travel " <> showt dir <> "."
+enactInstruction (Get target) = do
+  p <- getPlayer
+  es <- getTargetedEntitiesNearPlayer target
+  case es of
+    [] -> liftIO $ TIO.putStrLn $ "No " <> target <> " to get."
+    es -> do
+      let e = head es
+      if (e^.?locationID) == (p^.?locationID) && e^.storable == Storable
+         then do
+           modifyEntity (set locationID Nothing) (e^.?entityID)
+           modifyPlayer (over inventory (fmap (e^.?entityID:)))
+           liftIO $ TIO.putStrLn $ "You get the " <> target
+         else
+           liftIO $ TIO.putStrLn $ "Cannot get " <> (e^.?name)
+enactInstruction Inventory = do
+  p <- getPlayer
+  case p^.?inventory of
+    [] -> liftIO $ TIO.putStrLn "Your inventory is empty."
+    eIDs -> do
+      es <- getEntities eIDs
+      liftIO $ TIO.putStrLn $ T.intercalate "\n" ((^.?name) <$> es)
+enactInstruction Wait = do
+  incrementClock
+  liftIO $ TIO.putStrLn "You wait idly."
