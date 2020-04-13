@@ -31,6 +31,8 @@ data EntityType = Player
                 | Human
                 | Location
                 | Rock
+                | Radio
+                | Alarm
                 deriving (Eq, Show, Ord)
 
 -- A unique ID for each type of entity
@@ -60,6 +62,10 @@ data DroppableState = Droppable
                     | Undroppable
                     deriving (Eq, Show)
 
+data OnOffState = On
+                | Off
+                deriving (Eq, Show)
+
 data Entity = Entity { _entityID :: Maybe EntityID
                      , _name :: Maybe Name
                      , _targets :: Maybe (Set Target)
@@ -68,6 +74,7 @@ data Entity = Entity { _entityID :: Maybe EntityID
                      , _usable :: UsableState
                      , _edible :: EdibleState
                      , _potable :: PotableState
+                     , _onOff :: Maybe OnOffState
                      , _locationID :: Maybe EntityID
                      , _inventory :: Maybe Inventory
                      , _toNorth :: Maybe EntityID
@@ -89,6 +96,7 @@ instance Default Entity where
                , _edible=Inedible
                , _potable=Unpotable
                , _locationID=Nothing
+               , _onOff=Nothing
                , _inventory=Nothing
                , _toNorth=Nothing
                , _toEast=Nothing
@@ -177,6 +185,14 @@ getEntity eID = do
 getEntities :: (MonadState GameState m) => [EntityID] -> m [Entity]
 getEntities = traverse getEntity
 
+getOnlyEntity :: (MonadState GameState m) => EntityType -> m Entity
+getOnlyEntity et = do
+  es <- getAllEntities et
+  case es of
+    [] -> error "No single entity"
+    [e] -> return e
+    _ -> error "More than one entity"
+
 -- Get all entities at a given location.
 -- Should usually not include the player itself
 getEntitiesAt :: (MonadState GameState m) => EntityID -> m [Entity]
@@ -240,6 +256,34 @@ mkRock locationID = do
   registerEntity rock
   return rock
 
+mkRadio :: (MonadState GameState m) => EntityID -> m Entity
+mkRadio locationID = do
+  radioID <- newID Radio
+  let radio = def { _entityID=Just radioID
+                  , _name=Just "a battery-powered radio"
+                  , _locationID=Just locationID
+                  , _targets=Just $ S.fromList ["radio"]
+                  , _storable=Storable
+                  , _usable=Usable
+                  , _onOff=Just Off
+                  }
+  registerEntity radio
+  return radio
+
+mkAlarm :: (MonadState GameState m) => EntityID -> m Entity
+mkAlarm locationID = do
+  alarmID <- newID Alarm
+  let alarm = def { _entityID=Just alarmID
+                  , _name=Just "an alarm clock"
+                  , _locationID=Just locationID
+                  , _targets=Just $ S.fromList ["alarm", "clock"]
+                  , _storable=Unstorable
+                  , _usable=Usable
+                  , _onOff=Just Off
+                  }
+  registerEntity alarm
+  return alarm
+  
 -- Write an entity back to the register.
 registerEntity :: (MonadState GameState m) => Entity -> m ()
 registerEntity e = do
