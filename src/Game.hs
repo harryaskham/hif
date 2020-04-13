@@ -38,7 +38,6 @@ data EntityID = EntityID EntityType Integer deriving (Eq, Show, Ord)
 
 type Name = Text
 type Target = Text
-type Description = Text
 type Inventory = Set EntityID
 
 data StorableState = Storable
@@ -64,7 +63,6 @@ data DroppableState = Droppable
 data Entity = Entity { _entityID :: Maybe EntityID
                      , _name :: Maybe Name
                      , _targets :: Maybe (Set Target)
-                     , _description :: Maybe Description
                      , _storable :: StorableState
                      , _droppable :: DroppableState
                      , _usable :: UsableState
@@ -85,7 +83,6 @@ instance Default Entity where
   def = Entity { _entityID=Nothing
                , _name=Nothing
                , _targets=Nothing
-               , _description=Nothing
                , _storable=Unstorable
                , _droppable=Droppable
                , _usable=Unusable
@@ -102,9 +99,14 @@ instance Default Entity where
                }
 
 data GameState = GameState { _entities :: Map EntityID Entity
+                           , _descriptions :: Map EntityID (GameState -> EntityID -> Text)
                            , _clock :: Integer
-                           } deriving (Show)
+                           }
 makeLenses ''GameState
+
+-- TODO: Somehow move back to monadig
+-- TODO: Figure out how to remove duplication with the above circular reference
+type Description = GameState -> EntityID -> Text
 
 type Speech = Text
 
@@ -168,38 +170,36 @@ newID et = do
 
 mkGameState :: GameState
 mkGameState = GameState { _entities=M.empty
+                        , _descriptions=M.empty
                         , _clock=0
                         }
 
-mkPlayer :: (MonadState GameState m) => Name -> EntityID -> Description -> m Entity
-mkPlayer name locationID description = do
+mkPlayer :: (MonadState GameState m) => Name -> EntityID -> m Entity
+mkPlayer name locationID = do
   playerID <- newID Player
   let player = def { _entityID=Just playerID
                    , _name=Just name
                    , _locationID=Just locationID
                    , _inventory=Just S.empty
-                   , _description=Just description
                    }
   registerEntity player
   return player
 
-mkHuman :: (MonadState GameState m) => Name -> EntityID -> Description -> m Entity
-mkHuman name locationID description = do
+mkHuman :: (MonadState GameState m) => Name -> EntityID -> m Entity
+mkHuman name locationID = do
   humanID <- newID Human
   let human = def { _entityID=Just humanID
                   , _name=Just name
                   , _locationID=Just locationID
-                  , _description=Just description
                   }
   registerEntity human
   return human
 
-mkLocation :: (MonadState GameState m) => Name -> Description -> m Entity
-mkLocation name description = do
+mkLocation :: (MonadState GameState m) => Name -> m Entity
+mkLocation name = do
   locationID <- newID Location
   let location = def { _entityID=Just locationID
                      , _name=Just name
-                     , _description=Just description
                      }
   registerEntity location
   return location
@@ -210,7 +210,6 @@ mkRock locationID = do
   let rock = def { _entityID=Just rockID
                  , _name=Just "a rock"
                  , _locationID=Just locationID
-                 , _description=Just "A big ol' rock"
                  , _targets=Just $ S.fromList ["rock", "stone"]
                  , _storable=Storable
                  }
@@ -231,13 +230,24 @@ modifyEntity f eID = do
     Just e -> modify $ \s -> s & entities %~ M.insert eID (f e)
     Nothing -> return ()
 
+-- Register the given description function with the entity
+addDesc :: (MonadState GameState m) => EntityID -> Description -> m ()
+addDesc eID d = modify $ \s -> s & descriptions %~ M.insert eID d
+
 buildSimpleGame :: (MonadState GameState m) => m ()
 buildSimpleGame = do
-  southRoom <- mkLocation "South Room" "This is the southmost room."
-  player <- mkPlayer "Player" (southRoom^.?entityID) "This is you."
+  southRoom <- mkLocation "South Room" 
+  let southRoomDesc st eID = "This is " <> (e^.?name) <> " at time " <> showt (st^.clock)
+        where
+          -- TODO: This is horrible, need to figure out how to have descriptions be monadic
+          (Just e) = M.lookup eID $ st^.entities
+  addDesc (southRoom^.?entityID) southRoomDesc
+
+  player <- mkPlayer "Player" (southRoom^.?entityID)
   rock <- mkRock (southRoom^.?entityID)
 
-  northRoom <- mkLocation "North Room" "This is the northmost room."
+  northRoom <- mkLocation "North Room"
+  addDesc (northRoom^.?entityID) (\_ _ -> "This is the northernmost room")
   modifyEntity (set toSouth (Just $ southRoom^.?entityID)) (northRoom^.?entityID)
   modifyEntity (set toNorth (Just $ northRoom^.?entityID)) (southRoom^.?entityID)
   
@@ -258,18 +268,28 @@ getPlayerLocation = do
   p <- getPlayer
   getEntity $ p^.?locationID
 
+-- Gets the compiled description for the given entity
+getDescription :: (MonadState GameState m) => EntityID -> m Text
+getDescription eID = do
+  st <- get
+  ds <- gets (view descriptions)
+  let (Just d) = M.lookup eID ds
+  return $ d st eID
+
 -- TODO: Smarter location descriptions that build the things into the text.
 -- Description should be a function that builds text, rather than just text.
 -- So should name. These can be consts for now.
 describeCurrentTurn :: (MonadState GameState m) => m Text
 describeCurrentTurn = do
+  st <- get
   p <- getPlayer
   l <- getEntity $ p^.?locationID
   es <- getEntitiesAt (l^.?entityID)
   clock <- gets (view clock)
+  lDesc <- getDescription $ l^.?entityID
   let clockrow = Just $ "The time is " <> showt clock
       header = Just $ "You are at " <> l^.?name
-      desc = Just $ l^.?description
+      desc = Just lDesc
       thingsHere =
         case length es of
           0 -> Nothing
@@ -427,6 +447,7 @@ enactInstruction (Go dir) = do
       modifyPlayer (set locationID (Just lID))
       incrementClock
     Nothing -> liftIO $ TIO.putStrLn $ "Cannot travel " <> showt dir <> "."
+
 enactInstruction (Get target) = do
   p <- getPlayer
   es <- getTargetedEntitiesNearPlayer target
@@ -442,6 +463,7 @@ enactInstruction (Get target) = do
            liftIO $ TIO.putStrLn $ "You get the " <> target
          else
            liftIO $ TIO.putStrLn $ "Cannot get " <> (e^.?name)
+
 enactInstruction (Drop target) = do
   l <- getPlayerLocation
   es <- filterInventoryByTarget target
@@ -457,6 +479,7 @@ enactInstruction (Drop target) = do
            liftIO $ TIO.putStrLn $ "You drop the " <> target
         else
           liftIO $ TIO.putStrLn $ e^.?name <> " cannot be dropped"
+
 enactInstruction Inventory = do
   p <- getPlayer
   case S.size (p^.?inventory) of
@@ -464,6 +487,7 @@ enactInstruction Inventory = do
     _ -> do
       es <- getInventoryEntities
       liftIO $ TIO.putStrLn $ "You have: " <> T.intercalate "\n" ((^.?name) <$> es)
+
 enactInstruction Wait = do
   incrementClock
   liftIO $ TIO.putStrLn "You wait idly."
