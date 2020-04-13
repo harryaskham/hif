@@ -1,0 +1,62 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: e6e78752cc9ab5d2f1bef11891a3b7adf4a9415965e0866fd74c1703f12baef1
+
+name:           hif
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/githubuser/hif#readme>
+homepage:       https://github.com/harryaskham/hif#readme
+bug-reports:    https://github.com/harryaskham/hif/issues
+author:         Harry Askham
+maintainer:     harry@askham.ai
+copyright:      2020 Harry Askham
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/harryaskham/hif
+
+library
+  exposed-modules:
+      Lib
+  other-modules:
+      Paths_hif
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+  default-language: Haskell2010
+
+executable hif-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_hif
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , hif
+  default-language: Haskell2010
+
+test-suite hif-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_hif
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , hif
+  default-language: Haskell2010
