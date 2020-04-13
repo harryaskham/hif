@@ -270,11 +270,9 @@ mkRadio :: (MonadState GameState m) => EntityID -> m Entity
 mkRadio locationID = do
   radioID <- newID Radio
   let radio = def { _entityID=Just radioID
-                  , _name=Just "a battery-powered radio"
+                  , _name=Just "a wall-mounted radio"
                   , _locationID=Just locationID
                   , _targets=Just $ S.fromList ["radio"]
-                  , _storable=Storable
-                  , _usable=Usable
                   , _onOff=Just Off
                   }
   registerEntity radio

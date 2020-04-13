@@ -16,9 +16,11 @@ bedroomDesc st eID = evalState go st
   where
     go = do
       e <- getEntity eID
-      alarm <- getOnlyEntity Alarm
-      let lines = [ if not (e^.?visited) then Just "You awake on Day 812 of The Quarantine. Half-forgetten dreams of exponential curves leave you as you take in your surroundings. You stand." else Nothing
-                  , Just "This is the bedroom you got stuck with when the military started their patrols. The bed is sweat-damp - the walls too, since they closed the vents."
+      radio <- getOnlyEntity Radio
+      let lines = [ if not (e^.?visited) then Just "You awake on Day 812 of The Quarantine.\n\nHalf-forgetten dreams of exponential curves leave you as you take in your surroundings. You get out of bed." else Nothing
+                  , Just "This is the bedroom you got stuck with when the military started their patrols. The bed is sweat-damp - the walls too, since they closed up all the vents."
+                  , if radio^.?onOff == On then Just "The wall radio is on, as always." else Nothing
+                  , Just "TODO: RADIO HEADLINES"
                   ]
       return $ T.unlines $ catMaybes lines
 
@@ -27,8 +29,8 @@ radioDesc st eID = evalState go st
   where
     go = do
       e <- getEntity eID
-      let lines = [ Just "A battery-powered FM radio - they had to turn the signal back on last year. Government issue. "
-                  , if e^.?onOff == On then Just "It's on, and blaring headlines at you. It'll run out of power soon." else Just "It's dialled to static right now."
+      let lines = [ Just "A wall-mounted FM radio - they had to turn the signal back on last year. Government issue."
+                  , if e^.?onOff == On then Just "It's on, and blaring headlines at you." else Just "It's dialled to static right now."
                   ]
       return $ T.unlines $ catMaybes lines
 
@@ -45,6 +47,7 @@ alarmDesc st eID = evalState go st
 playerDesc :: Description
 playerDesc st eID = evalState go st
   where
+    -- TODO: Hint at needing a wash to progress
     go = return "You look like shit. Beard still patchy after all this time."
 
 alarmWatcher :: Watcher
@@ -54,10 +57,19 @@ alarmWatcher = execState go
       e <- getOnlyEntity Alarm
       when ((e^.?onOff) == Off) $ removeAlert "Alarm"
 
+deliveryKnockWatcher :: Watcher
+deliveryKnockWatcher = execState go
+  where
+    go = do
+      clock <- gets (view clock)
+      when (clock == 2) $ addAlert "Delivery" "You hear a frantic knocking at your front door. You should get that."
+
 buildCovidGame :: (MonadState GameState m) => m ()
 buildCovidGame = do
-  addAlert "Alarm" "Your alarm clock is emitting a shrill screech, signalling 05:00 - just half an hour until your shift starts."
+  addAlert "Alarm" "Your alarm clock emits a shrill screech, signalling 05:00 - just half an hour until your shift starts."
   addWatcher alarmWatcher
+
+  addWatcher deliveryKnockWatcher
 
   bedroom <- mkLocation "your Bedroom"
   addDesc (bedroom^.?entityID) bedroomDesc
