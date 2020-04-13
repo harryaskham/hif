@@ -42,7 +42,8 @@ player leaves without n95 mask on - ushered back inside by police, but the tempo
 
 player wears n95 and can now leave the house behind. milestone 1
 
-- TODO: Achievements for weird trhigs
+- TODO: Achievements for weird trhigs - radio in the bathtub
 - things can contain other things, maybe?
 - more forgiving verb/noun combos
 - whether on/off in inventory display
+- clothing status for player / bathing status for player? wearing things like suits, masks

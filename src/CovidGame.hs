@@ -42,8 +42,13 @@ alarmDesc st eID = evalState go st
                   ]
       return $ T.unlines $ catMaybes lines
 
+playerDesc :: Description
+playerDesc st eID = evalState go st
+  where
+    go = return "You look like shit. Beard still patchy after all this time."
+
 alarmWatcher :: Watcher
-alarmWatcher st = let (_, st') = runState go st in st'
+alarmWatcher = execState go
   where
     go = do
       e <- getOnlyEntity Alarm
@@ -58,7 +63,7 @@ buildCovidGame = do
   addDesc (bedroom^.?entityID) bedroomDesc
 
   player <- mkPlayer "yourself" $ bedroom^.?entityID
-  addDesc (player^.?entityID) (\_ _ -> "You look like shit.")
+  addDesc (player^.?entityID) playerDesc
 
   radio <- mkRadio $ bedroom^.?entityID
   modifyEntity (set onOff $ Just On) (radio^.?entityID)
