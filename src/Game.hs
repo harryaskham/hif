@@ -52,10 +52,10 @@ data PotableState = Potable
 data Entity = Entity { _entityID :: Maybe EntityID
                      , _name :: Maybe Name
                      , _description :: Maybe Description
-                     , _storable :: Maybe StorableState
-                     , _usable :: Maybe UsableState
-                     , _edible :: Maybe EdibleState
-                     , _potable :: Maybe PotableState
+                     , _storable :: StorableState
+                     , _usable :: UsableState
+                     , _edible :: EdibleState
+                     , _potable :: PotableState
                      , _locationID :: Maybe EntityID
                      , _inventory :: Maybe Inventory
                      , _toNorth :: Maybe EntityID
@@ -71,10 +71,10 @@ instance Default Entity where
   def = Entity { _entityID=Nothing
                , _name=Nothing
                , _description=Nothing
-               , _storable=Nothing
-               , _usable=Nothing
-               , _edible=Nothing
-               , _potable=Nothing
+               , _storable=Unstorable
+               , _usable=Unusable
+               , _edible=Inedible
+               , _potable=Unpotable
                , _locationID=Nothing
                , _inventory=Nothing
                , _toNorth=Nothing
@@ -182,6 +182,7 @@ mkRock locationID = do
                   , _name=Just "a rock"
                   , _locationID=Just locationID
                   , _description=Just "A big ol' rock"
+                  , _storable=Storable
                   }
   registerEntity rock
   return rock
