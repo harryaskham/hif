@@ -26,6 +26,13 @@ dependencies:
 - random
 - MonadRandom
 - listsafe
+- data-default
+- unliftio
+- unliftio-core
+- containers
+- transformers
+- text
+- text-show
 
 library:
   source-dirs: src

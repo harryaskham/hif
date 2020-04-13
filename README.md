@@ -8,3 +8,4 @@
 - Locatinos have conditionals that must be met, might cross-ref other things
 - For this, need notion of global entity map
 - Story beats - predicate reveal of additional information based on actions - how to encode branching path?
+- Unlimited UNDO should be possible
