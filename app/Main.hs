@@ -5,13 +5,15 @@ module Main where
 import Control.Monad.IO.Class
 import Control.Monad.State
 import Game
+import CovidGame
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Control.Monad
 
 runApp :: App ()
 runApp = do
-  buildSimpleGame
+  -- buildSimpleGame
+  buildCovidGame
   loop
   where
     loop :: App ()

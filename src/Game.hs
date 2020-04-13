@@ -24,8 +24,8 @@ import Control.Monad (void)
 import Data.Char (isLetter, isDigit)
 
 -- Unsafely lens into a Maybe
-(^.?) :: s -> Getting (Maybe a) s (Maybe a) -> a
-a ^.? b = fromMaybe (error "Unsafe entity attribute access") (a ^. b)
+(^.?) :: Show s => s -> Getting (Maybe a) s (Maybe a) -> a
+a ^.? b = fromMaybe (error $ "Unsafe entity attribute access" ++ show a) (a ^. b)
 
 data EntityType = Player
                 | Human
@@ -286,8 +286,6 @@ buildSimpleGame = do
   addDesc (northRoom^.?entityID) (\_ _ -> "This is the northernmost room")
   modifyEntity (set toSouth (Just $ southRoom^.?entityID)) (northRoom^.?entityID)
   modifyEntity (set toNorth (Just $ northRoom^.?entityID)) (southRoom^.?entityID)
-  
-  return ()
 
 -- Get the single player entity
 getPlayer :: (MonadState GameState m) => m Entity
@@ -351,7 +349,8 @@ describeCurrentTurn = do
       , (toDown, "Below you")
       ]
 
-  return $ T.intercalate "\n" (catMaybes [clockrow, header, desc, alerts, thingsHere] ++ directions)
+  -- TODO: Reinstate clock?
+  return $ T.intercalate "\n" (catMaybes [header, desc, alerts, thingsHere] ++ directions)
 
 -- Handle input, potentially running an instruction and modifying game state.
 runInstruction :: (MonadState GameState m, MonadIO m) => Text -> m ()
