@@ -105,13 +105,18 @@ data GameState = GameState { _entities :: Map EntityID Entity
                            , _descriptions :: Map EntityID (GameState -> EntityID -> Text)
                            , _clock :: Integer
                            , _alerts :: Map AlertID Alert
+                           -- TODO: Better reconcile this to use 
                            , _watchers :: [GameState -> GameState]
                            }
 makeLenses ''GameState
 
+-- Overall stack for the App
+type App = StateT GameState IO
+
 -- TODO: Somehow move back to monadig
 -- TODO: Figure out how to remove duplication with the above circular reference
 type Description = GameState -> EntityID -> Text
+
 -- TODO: Figure out as per above, should be monadic and avoid circular reference
 type Watcher = (GameState -> GameState)
 

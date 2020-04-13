@@ -2,14 +2,12 @@
 
 module Main where
 
-import Control.Monad.Trans.State.Strict
 import Control.Monad.IO.Class
+import Control.Monad.State
 import Game
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Control.Monad
-
-type App = StateT GameState IO
 
 runApp :: App ()
 runApp = do
