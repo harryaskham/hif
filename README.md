@@ -1,0 +1,2 @@
+# hif
+Haskell Interactive Fiction
