@@ -83,6 +83,7 @@ data Entity = Entity { _entityID :: Maybe EntityID
                      , _toWest :: Maybe EntityID
                      , _toUp :: Maybe EntityID
                      , _toDown :: Maybe EntityID
+                     , _visited :: Maybe Bool
                      } deriving (Show)
 makeLenses ''Entity
 
@@ -104,7 +105,12 @@ instance Default Entity where
                , _toWest=Nothing
                , _toUp=Nothing
                , _toDown=Nothing
+               , _visited=Nothing
                }
+
+-- Get just the entity type
+entityType :: Entity -> EntityType
+entityType e = let (EntityID et _) = (e^.?entityID) in et
 
 type AlertID = Text
 type Alert = Text
@@ -169,6 +175,8 @@ data Instruction = Go Direction
                  | Look
                  | LookAt Target
                  | Inventory
+                 | TurnOn Target
+                 | TurnOff Target
 
 getAllEntities :: (MonadState GameState m) => EntityType -> m [Entity]
 getAllEntities et = do
@@ -198,7 +206,7 @@ getOnlyEntity et = do
 getEntitiesAt :: (MonadState GameState m) => EntityID -> m [Entity]
 getEntitiesAt lID = do
   es <- gets (view entities)
-  return [e | e <- snd <$> M.toList es, (e^.locationID) == Just lID, let (EntityID et _) = e^.?entityID in et /= Player]
+  return [e | e <- snd <$> M.toList es, (e^.locationID) == Just lID]
 
 -- Non-thread-safe way to get a new entity ID.
 newID :: (MonadState GameState m) => EntityType -> m EntityID
@@ -221,6 +229,7 @@ mkPlayer name locationID = do
                    , _name=Just name
                    , _locationID=Just locationID
                    , _inventory=Just S.empty
+                   , _targets=Just $ S.fromList ["me", "self", "myself", "i", "player", "yourself"]
                    }
   registerEntity player
   return player
@@ -240,6 +249,7 @@ mkLocation name = do
   locationID <- newID Location
   let location = def { _entityID=Just locationID
                      , _name=Just name
+                     , _visited=Just False
                      }
   registerEntity location
   return location
@@ -277,8 +287,7 @@ mkAlarm locationID = do
                   , _name=Just "an alarm clock"
                   , _locationID=Just locationID
                   , _targets=Just $ S.fromList ["alarm", "clock"]
-                  , _storable=Unstorable
-                  , _usable=Usable
+                  , _storable=Storable
                   , _onOff=Just Off
                   }
   registerEntity alarm
@@ -362,12 +371,12 @@ describeCurrentTurn = do
   st <- get
   p <- getPlayer
   l <- getEntity $ p^.?locationID
-  es <- getEntitiesAt (l^.?entityID)
+  es <- filter (\e -> entityType e /= Player) <$> getEntitiesAt (l^.?entityID)
   clock <- gets (view clock)
   lDesc <- getDescription $ l^.?entityID
   alertsMap <- gets (view alerts)
   let clockrow = Just $ "The time is " <> showt clock
-      header = Just $ "You are at " <> l^.?name
+      header = Just $ "\n" <> (T.toUpper $ (l^.?name)) <> "\n=========="
       desc = Just lDesc
       alerts = case snd <$> M.toList alertsMap of
                  [] -> Nothing
@@ -375,7 +384,7 @@ describeCurrentTurn = do
       thingsHere =
         case length es of
           0 -> Nothing
-          _ -> Just $ "You can see: " <> T.intercalate ", " ((^.?name) <$> es)
+          _ -> Just $ "\nYou can see: " <> (T.intercalate ", " ((^.?name) <$> es) <> "\n")
   directions <-
     sequence 
     $ mapMaybe
@@ -453,7 +462,7 @@ parseInventory = do
 
 parseGet :: Parser Instruction
 parseGet = do
-  string "get" <|> string "pick up"
+  string "get" <|> string "pick up" <|> string "take"
   spaces
   target <- many1 anyChar
   eof
@@ -473,6 +482,35 @@ parseWait = do
   eof
   return Wait
 
+parseLook :: Parser Instruction
+parseLook = do
+  anyString ["l", "look"]
+  return Look
+
+parseLookAt :: Parser Instruction
+parseLookAt = do
+  string "look at"
+  spaces
+  target <- many1 anyChar
+  eof
+  return $ LookAt (T.pack target)
+
+parseTurnOn :: Parser Instruction
+parseTurnOn = do
+  string "turn on"
+  spaces
+  target <- many1 anyChar
+  eof
+  return $ TurnOn (T.pack target)
+
+parseTurnOff :: Parser Instruction
+parseTurnOff = do
+  string "turn off"
+  spaces
+  target <- many1 anyChar
+  eof
+  return $ TurnOff (T.pack target)
+
 instructionParser :: Parser Instruction
 instructionParser =
   try parseGo
@@ -480,6 +518,10 @@ instructionParser =
   <|> try parseGet
   <|> try parseDrop
   <|> try parseWait
+  <|> try parseLook
+  <|> try parseLookAt
+  <|> try parseTurnOn
+  <|> try parseTurnOff
 
 -- Parse out the instruction from the given text string
 parseInstruction :: Text -> Maybe Instruction
@@ -513,6 +555,12 @@ filterByTarget t = filter (\e -> t `S.member` (e^.?targets))
 
 getTargetedEntitiesNearPlayer :: (MonadState GameState m) => Target -> m [Entity]
 getTargetedEntitiesNearPlayer t = filterByTarget t <$> getEntitiesNearPlayer
+
+allValidTargetedEntities :: (MonadState GameState m) => Target -> m [Entity]
+allValidTargetedEntities t = do
+  es1 <- getTargetedEntitiesNearPlayer t
+  es2 <- filterInventoryByTarget t
+  return $ es1 ++ es2
 
 getInventoryEntities :: (MonadState GameState m) => m [Entity]
 getInventoryEntities = do
@@ -563,14 +611,73 @@ enactInstruction (Drop target) = do
         else
           liftIO $ TIO.putStrLn $ e^.?name <> " cannot be dropped"
 
+enactInstruction (LookAt target) = do
+  es <- allValidTargetedEntities target
+  case es of
+    [] -> liftIO $ TIO.putStrLn $ "Can't see " <> target
+    es -> do
+      let e = head es
+      d <- getDescription (e^.?entityID)
+      liftIO $ TIO.putStrLn d
+
+enactInstruction Look = liftIO $ TIO.putStrLn "You look around... some more?"
+
 enactInstruction Inventory = do
   p <- getPlayer
   case S.size (p^.?inventory) of
     0 -> liftIO $ TIO.putStrLn "Your inventory is empty."
     _ -> do
       es <- getInventoryEntities
-      liftIO $ TIO.putStrLn $ "You have: " <> T.intercalate "\n" ((^.?name) <$> es)
+      liftIO $ TIO.putStrLn $ "You have: " <> T.intercalate ", " ((^.?name) <$> es)
 
 enactInstruction Wait = do
   incrementClock
   liftIO $ TIO.putStrLn "You wait idly."
+
+enactInstruction (TurnOn target) = do
+  es <- allValidTargetedEntities target
+  case es of
+    [] -> liftIO $ TIO.putStrLn $ "Don't know what " <> target <> " is"
+    es -> do
+      let e = head es
+      turnOn (e^.?entityID)
+
+enactInstruction (TurnOff target) = do
+  es <- allValidTargetedEntities target
+  case es of
+    [] -> liftIO $ TIO.putStrLn $ "Don't know what " <> target <> " is"
+    es -> do
+      let e = head es
+      turnOff (e^.?entityID)
+
+turnOn :: (MonadState GameState m, MonadIO m) => EntityID -> m ()
+turnOn eID = do
+  e <- getEntity eID
+  if isNothing (e^.onOff)
+     then liftIO $ TIO.putStrLn "Can't turn that on"
+     else case entityType e of
+       Alarm -> liftIO $ TIO.putStrLn "You can't turn an alarm on at will, man. Time only goes one way."
+       Radio -> case e^.?onOff of
+                  Off -> do
+                    liftIO $ TIO.putStrLn "You twist the dial until the bad news starts to roll once more."
+                    modifyEntity (set onOff $ Just On) (e^.?entityID)
+                  On -> liftIO $ TIO.putStrLn "Already chirping away, friend."
+       _ -> liftIO $ TIO.putStrLn "Nothing happens"
+
+turnOff :: (MonadState GameState m, MonadIO m) => EntityID -> m ()
+turnOff eID = do
+  e <- getEntity eID
+  if isNothing (e^.onOff)
+     then liftIO $ TIO.putStrLn "Can't turn that off"
+     else case entityType e of
+       Alarm -> case e^.?onOff of
+                  Off -> liftIO $ TIO.putStrLn "You already took care of that, chap."
+                  On -> do
+                    liftIO $ TIO.putStrLn "You slam a calloused hand onto the rusty metal bells, and the alarm is silenced."
+                    modifyEntity (set onOff $ Just Off) (e^.?entityID)
+       Radio -> case e^.?onOff of
+                  Off -> liftIO $ TIO.putStrLn "The radio is already off."
+                  On -> do
+                    liftIO $ TIO.putStrLn "There's no off switch, but you dial your way to the most quiet static you can find."
+                    modifyEntity (set onOff $ Just Off) (e^.?entityID)
+       _ -> liftIO $ TIO.putStrLn "Nothing happens"

@@ -9,6 +9,7 @@
 
 ## Outline
 awake on day 912 of quarantine - it's a monday
+alone with one night stand?
 message on radio from BJ simulacra hoping to keep deaths under X, virus mutated Y times
 knocking at the door (requires alert mechanism)
 physical alarm going off - 6:30am
@@ -40,3 +41,8 @@ power suddenly cuts out! that must be the government line. You hear a clunk come
 player leaves without n95 mask on - ushered back inside by police, but the temporary exposure gives symptoms. a week later, bulbous sores erupt on back and legs, and lungs fill with fetid blood. ded
 
 player wears n95 and can now leave the house behind. milestone 1
+
+- TODO: Achievements for weird trhigs
+- things can contain other things, maybe?
+- more forgiving verb/noun combos
+- whether on/off in inventory display
