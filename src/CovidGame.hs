@@ -61,7 +61,32 @@ deliveryKnockWatcher = execState go
   where
     go = do
       clock <- gets (view clock)
-      when (clock == 2) $ addAlert "Delivery" "You hear a frantic knocking at your front door. You should get that."
+      when (clock == 5) $ do
+        addAlert "Delivery" "You hear a frantic knocking at your front door. You should get that."
+        hallway <- getLocationByName "hallway"
+        deliveryMan <- mkHuman "delivery man" ["man", "delivery", "delivery man"] (hallway^.?entityID)
+        desc deliveryMan (const $ return "You can't see him too well through the frosted glass, but you can hear him okay")
+
+hallwayDesc eID = do
+  e <- getEntity eID
+  let canLeave = isJust $ e^.toNorth
+  deliveryMan <- getTargetedEntitiesNearPlayer "delivery man"
+  let lines = [ if not (e^.?visited) then Just "You shuffle into the hallway, suppressing a rattling cough." else Nothing
+              , Just "Framed family photos thick with dust adorn the walls."
+              , if not canLeave then Just "The front door - for ingress only, of course - is to the North. There's a delivery slot at the bottom."
+                                else Just "The delivery slot on the front door is stuck open."
+              , if not . null $ deliveryMan then Just "The ration delivery man is on the other side of the door, shouting at you to confirm receipt." else Nothing
+              ]
+  return $ T.unlines $ catMaybes lines
+
+hatchDesc eID = do
+  e <- getEntity eID
+  -- TODO: Another line about being propped open once we have it
+  let isOpen = e^.?openClosed == Open
+      lines = [ Just "This is the hatch through which your rations get chucked. It opens for - I don't know, maybe two turns worth of time? - every week."
+              , if isOpen then Just "The hatch is open, and you can see the forbidden pavement outside. It's been years since you set foot there." else Nothing
+              ]
+  return $ T.unlines $ catMaybes lines
 
 buildCovidGame :: (MonadState GameState m) => m ()
 buildCovidGame = do
@@ -70,11 +95,11 @@ buildCovidGame = do
 
   addWatcher deliveryKnockWatcher
 
-  bedroom <- mkLocation "your Bedroom"
+  bedroom <- mkLocation "bedroom"
   desc bedroom bedroomDesc
 
   bed <- mkSimpleObj "your bed" ["bed"] (bedroom^.?entityID)
-  desc bed (const $ return "Yellowed sheets last changed months ago cover a parabolic mattress.")
+  desc bed (const $ return "Yellowed sheets last changed months ago cover a parabolic mattress. You want back in so, so badly.")
 
   hairband <- mkHairband (bedroom^.?entityID)
   desc hairband (const $ return "A faded elasticated hairband. Your head's big but it looks like it'd get around it.")
@@ -89,3 +114,19 @@ buildCovidGame = do
   alarm <- mkAlarm $ bedroom ^.?entityID
   modifyEntity (set onOff $ Just On) (alarm^.?entityID)
   desc alarm alarmDesc
+
+  hallway <- mkLocation "hallway"
+  desc hallway hallwayDesc
+  modifyEntity (set toNorth $ hallway^.entityID) (bedroom^.?entityID)
+  modifyEntity (set toSouth $ bedroom^.entityID) (hallway^.?entityID)
+
+  photos <- mkSimpleObj "photos" ["photo", "photos"] (hallway ^.?entityID)
+  desc photos (const $ return "There's one of your parents looking happy a decade before you were born, and another of you nude in a public fountain chasing pigeons.")
+  frontDoor <- mkSimpleObj "front door" ["door", "front door"] (hallway ^.?entityID)
+  desc frontDoor (const $ return "This used to be your way to the outside world. Now it only yawns, once a week, to receive a box of rations through the hatch in the lower half.")
+  hatch <- mkSimpleObj "hatch" ["hatch", "slot"] (hallway^.?entityID)
+  desc hatch hatchDesc
+  modifyEntity (set openClosed $ Just Closed) (hatch^.?entityID)
+
+  -- TODO: A watcher that adds the front door once open
+  -- TODO: A watcher to open and close the slot at the right time - first watcher opens it, second closes it

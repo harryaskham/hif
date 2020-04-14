@@ -68,6 +68,10 @@ data OnOffState = On
                 | Off
                 deriving (Eq, Show)
 
+data OpenClosedState = Open
+                     | Closed
+                     deriving (Eq, Show)
+
 data Entity = Entity { _entityID :: Maybe EntityID
                      , _name :: Maybe Name
                      , _targets :: Maybe (Set Target)
@@ -77,6 +81,7 @@ data Entity = Entity { _entityID :: Maybe EntityID
                      , _edible :: EdibleState
                      , _potable :: PotableState
                      , _onOff :: Maybe OnOffState
+                     , _openClosed :: Maybe OpenClosedState
                      , _locationID :: Maybe EntityID
                      , _inventory :: Maybe Inventory
                      , _toNorth :: Maybe EntityID
@@ -100,6 +105,7 @@ instance Default Entity where
                , _potable=Unpotable
                , _locationID=Nothing
                , _onOff=Nothing
+               , _openClosed=Nothing
                , _inventory=Nothing
                , _toNorth=Nothing
                , _toEast=Nothing
@@ -179,6 +185,7 @@ data Instruction = Go Direction
                  | Inventory
                  | TurnOn Target
                  | TurnOff Target
+                 | Help
 
 getAllEntities :: (MonadState GameState m) => EntityType -> m [Entity]
 getAllEntities et = do
@@ -194,6 +201,11 @@ getEntity eID = do
 
 getEntities :: (MonadState GameState m) => [EntityID] -> m [Entity]
 getEntities = traverse getEntity
+
+getLocationByName :: (MonadState GameState m) => Name -> m Entity
+getLocationByName n = do
+  es <- getAllEntities Location
+  return $ head [e | e <- es, e^.name == Just n]
 
 getOnlyEntity :: (MonadState GameState m) => EntityType -> m Entity
 getOnlyEntity et = do
@@ -247,11 +259,12 @@ mkPlayer name locationID = do
   registerEntity player
   return player
 
-mkHuman :: (MonadState GameState m) => Name -> EntityID -> m Entity
-mkHuman name locationID = do
+mkHuman :: (MonadState GameState m) => Name -> [Target] -> EntityID -> m Entity
+mkHuman name targets locationID = do
   humanID <- newID Human
   let human = def { _entityID=Just humanID
                   , _name=Just name
+                  , _targets=Just $ S.fromList targets
                   , _locationID=Just locationID
                   }
   registerEntity human
@@ -416,7 +429,7 @@ describeCurrentTurn = do
           Nothing -> Nothing
           Just lID -> Just $ do
             l <- getEntity lID
-            return $ dirString <> " is " <> l^.?name)
+            return $ dirString <> " is the " <> l^.?name)
       [ (toNorth, "To the North")
       , (toEast, "To the East")
       , (toSouth, "To the South")
@@ -483,6 +496,11 @@ parseInventory = do
   anyString ["i", "inv", "inventory"]
   return Inventory
 
+parseHelp :: Parser Instruction
+parseHelp = do
+  anyString ["h", "help", "hint"]
+  return Help
+
 parseGet :: Parser Instruction
 parseGet = do
   string "get" <|> string "pick up" <|> string "take"
@@ -545,6 +563,7 @@ instructionParser =
   <|> try parseLookAt
   <|> try parseTurnOn
   <|> try parseTurnOff
+  <|> try parseHelp
 
 -- Parse out the instruction from the given text string
 parseInstruction :: Text -> Maybe Instruction
@@ -601,6 +620,8 @@ enactInstruction (Go dir) = do
       modifyPlayer (set locationID (Just lID))
       incrementClock
     Nothing -> liftIO $ TIO.putStrLn $ "Cannot travel " <> showt dir <> "."
+
+enactInstruction Help = liftIO $ TIO.putStrLn "TODO: Help message for the player"
 
 enactInstruction (Get target) = do
   p <- getPlayer

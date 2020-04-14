@@ -53,4 +53,5 @@ no internet, basic comms - look through footage on tapes and scour for groups of
 - break things - with a broken status
 - bed to look unde
 - synechdoche stuff - look under lid, for example
-- repeat the mantra on the radio
+- repeat the mantra on the radio for special ending
+- stick the door open with a rod and leave with makeshift mas
