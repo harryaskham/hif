@@ -10,6 +10,7 @@ import qualified Data.Text as T
 import Control.Lens
 import qualified Data.Text.IO as TIO
 import Control.Monad
+import System.IO
 
 runApp :: App ()
 runApp = do
@@ -27,7 +28,7 @@ runApp = do
       modifyEntity (set visited $ Just True) (p^.?locationID)
 
       -- If we made it to the street, finish
-      -- TODO: remove specificity
+      -- TODO: remove specificity for street
       l <- getPlayerLocation
       if l^.?name == "street"
          then  liftIO $ TIO.putStrLn "END OF STORY SO FAR"
@@ -43,5 +44,6 @@ runApp = do
 
 main :: IO ()
 main = do
+  hSetBuffering stdout NoBuffering
   _ <- runStateT runApp mkGameState
   return ()
