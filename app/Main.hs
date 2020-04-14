@@ -31,7 +31,10 @@ runApp = do
       -- TODO: remove specificity for street
       l <- getPlayerLocation
       if l^.?name == "street"
-         then  liftIO $ TIO.putStrLn "END OF STORY SO FAR"
+         then do
+           liftIO $ TIO.putStrLn "END OF STORY SO FAR"
+           _ <- liftIO getLine
+           liftIO $ TIO.putStrLn "CIAO"
          else do
            -- Get input and run instruction
            liftIO $ TIO.putStr "> "

@@ -835,7 +835,7 @@ talkTo eID = do
         hatch <- getOneEntityByName SimpleObj "hatch"
         newTime <- gets (view clock)
         plunger <- getOneEntityByName SimpleObj "plunger"
-        when (hatch^.?openClosed == Open && newTime == oldTime + 1 && (plunger^.?locationID) /= (hatch ^.?entityID)) $ do
+        when (hatch^.?openClosed == Open && newTime == oldTime + 1 && (plunger^.locationID) /= (hatch ^.entityID)) $ do
           addAlert "HatchShut" "The hatch on the front door has slammed shut, and won't reopen for another week."
           modifyEntity (set openClosed $ Just Closed) (hatch^.?entityID)
 
