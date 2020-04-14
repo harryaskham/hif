@@ -284,7 +284,7 @@ mkAlarm locationID = do
   let alarm = def { _entityID=Just alarmID
                   , _name=Just "an alarm clock"
                   , _locationID=Just locationID
-                  , _targets=Just $ S.fromList ["alarm", "clock"]
+                  , _targets=Just $ S.fromList ["alarm", "clock", "alarm clock"]
                   , _storable=Storable
                   , _onOff=Just Off
                   }
@@ -425,32 +425,32 @@ anyString strs = foldl1 (<|>) ((\s -> try (string s >> eof)) <$> strs)
 
 parseNorth :: Parser Instruction
 parseNorth = do
-  anyString ["n", "north"]
+  anyString ["n", "north", "go north"]
   return $ Go DirNorth
 
 parseSouth :: Parser Instruction
 parseSouth = do
-  anyString ["s", "south"]
+  anyString ["s", "south", "go south"]
   return $ Go DirSouth
 
 parseEast :: Parser Instruction
 parseEast = do
-  anyString ["e", "east"]
+  anyString ["e", "east", "go east"]
   return $ Go DirEast
 
 parseWest :: Parser Instruction
 parseWest = do
-  anyString ["w", "west"]
+  anyString ["w", "west", "go west"]
   return $ Go DirWest
 
 parseUp :: Parser Instruction
 parseUp = do
-  anyString ["u", "up"]
+  anyString ["u", "up", "go up"]
   return $ Go DirUp
 
 parseDown :: Parser Instruction
 parseDown = do
-  anyString ["d", "down"]
+  anyString ["d", "down", "go down"]
   return $ Go DirDown
 
 parseInventory :: Parser Instruction

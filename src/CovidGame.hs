@@ -17,8 +17,8 @@ bedroomDesc st eID = evalState go st
     go = do
       e <- getEntity eID
       radio <- getOnlyEntity Radio
-      let lines = [ if not (e^.?visited) then Just "You awake on Day 812 of The Quarantine.\n\nHalf-forgetten dreams of exponential curves leave you as you take in your surroundings. You get out of bed." else Nothing
-                  , Just "This is the bedroom you got stuck with when the military started their patrols. The bed is sweat-damp - the walls too, since they closed up all the vents."
+      let lines = [ if not (e^.?visited) then Just "You awake on Day 812 of The Quarantine.\n\nHalf-forgetten dreams of exponential curves leave you as you reluctantly get out of bed." else Nothing
+                  , Just "This is the bedroom you got stuck with when the military started their patrols. The bed is sweat-damp - the walls too, ever since they closed up all the vents."
                   , if radio^.?onOff == On then Just "The wall radio is on, as always." else Nothing
                   , Just "TODO: RADIO HEADLINES"
                   ]

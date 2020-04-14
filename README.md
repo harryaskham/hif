@@ -50,3 +50,5 @@ no internet, basic comms - look through footage on tapes and scour for groups of
 - whether on/off in inventory display
 - clothing status for player / bathing status for player? wearing things like suits, masks
 - break things - with a broken status
+- bed to look unde
+- synechdoche stuff - look under lid, for example
