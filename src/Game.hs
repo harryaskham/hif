@@ -33,6 +33,7 @@ data EntityType = Player
                 | Rock
                 | Radio
                 | Alarm
+                | SimpleObj
                 deriving (Eq, Show, Ord)
 
 -- A unique ID for each type of entity
@@ -221,6 +222,17 @@ mkGameState = GameState { _entities=M.empty
                         , _alerts=M.empty
                         , _watchers=[]
                         }
+
+mkSimpleObj :: (MonadState GameState m) => Name -> [Target] -> EntityID -> m Entity
+mkSimpleObj name targets locationID = do
+  objID <- newID SimpleObj
+  let obj = def { _entityID=Just objID
+                , _name=Just name
+                , _locationID=Just locationID
+                , _targets=Just $ S.fromList targets
+                }
+  registerEntity obj
+  return obj
 
 mkPlayer :: (MonadState GameState m) => Name -> EntityID -> m Entity
 mkPlayer name locationID = do

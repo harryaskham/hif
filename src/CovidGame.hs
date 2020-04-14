@@ -6,23 +6,27 @@ module CovidGame where
 import Game
 import Control.Monad.State
 import qualified Data.Text as T
+import Data.Text (Text)
 import qualified Data.Map.Strict as M
 import Control.Lens
 import Control.Monad
 import Data.Maybe
 
-bedroomDesc :: Description
-bedroomDesc st eID = evalState go st
-  where
-    go = do
-      e <- getEntity eID
-      radio <- getOnlyEntity Radio
-      let lines = [ if not (e^.?visited) then Just "You awake on Day 812 of The Quarantine.\n\nHalf-forgetten dreams of exponential curves leave you as you reluctantly get out of bed." else Nothing
-                  , Just "This is the bedroom you got stuck with when the military started their patrols. The bed is sweat-damp - the walls too, ever since they closed up all the vents."
-                  , if radio^.?onOff == On then Just "The wall radio is on, as always." else Nothing
-                  , Just "TODO: RADIO HEADLINES"
-                  ]
-      return $ T.unlines $ catMaybes lines
+-- Helper to build out descriptions
+buildDescription f = (\st eID -> evalState (f eID) st)
+
+bedroomDesc' :: (MonadState GameState m) => EntityID -> m Text
+bedroomDesc' eID = do
+  e <- getEntity eID
+  radio <- getOnlyEntity Radio
+  let lines = [ if not (e^.?visited) then Just "You awake on Day 812 of The Quarantine.\n\nHalf-forgetten dreams of exponential curves leave you as you reluctantly get out of bed." else Nothing
+              , Just "This is the bedroom you got stuck with when the military started their patrols. The bed is sweat-damp - the walls too, ever since they closed up all the vents."
+              , if radio^.?onOff == On then Just "The wall radio is on, as always." else Nothing
+              , Just "TODO: RADIO HEADLINES"
+              ]
+  return $ T.unlines $ catMaybes lines
+
+bedroomDesc = buildDescription bedroomDesc'
 
 radioDesc :: Description
 radioDesc st eID = evalState go st
@@ -73,6 +77,9 @@ buildCovidGame = do
 
   bedroom <- mkLocation "your Bedroom"
   addDesc (bedroom^.?entityID) bedroomDesc
+
+  bed <- mkSimpleObj "your bed" ["bed"] (bedroom^.?entityID)
+  addDesc (bed^.?entityID) (\_ _ -> "Yellowed sheets last changed months ago cover a parabolic mattress.")
 
   player <- mkPlayer "yourself" $ bedroom^.?entityID
   addDesc (player^.?entityID) playerDesc
