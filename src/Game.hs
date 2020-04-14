@@ -692,7 +692,15 @@ enactInstruction (Go dir) = do
       incrementClock
     Nothing -> liftIO $ TIO.putStrLn $ "Cannot travel " <> showt dir <> "."
 
-enactInstruction Help = liftIO $ TIO.putStrLn "TODO: Help message for the player"
+enactInstruction Help =
+  liftIO
+  $ TIO.putStrLn
+  $ T.unlines [ "You can 'go north', 'north' or just 'n'."
+              , "If nothing is happening, just 'wait'"
+              , "'put X in Y' or 'combine X with Y' if you think that's a good idea"
+              , "'eat' stuff! 'wear' stuff! 'look at' stuff!"
+              , "'turn on' stuff!"
+              , "'get thing' and 'drop thing', and 'i' or 'inventory' to see what you've got" ]
 
 enactInstruction (Get target) = do
   p <- getPlayer
