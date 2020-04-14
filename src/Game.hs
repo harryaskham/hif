@@ -43,6 +43,7 @@ data EntityID = EntityID EntityType Integer deriving (Eq, Show, Ord)
 type Name = Text
 type Target = Text
 type Inventory = Set EntityID
+type Wearing = Set EntityID
 
 data StorableState = Storable
                    | Unstorable
@@ -72,6 +73,10 @@ data OpenClosedState = Open
                      | Closed
                      deriving (Eq, Show)
 
+data WearableState = Wearable
+                   | Unwearable
+                   deriving (Eq, Show)
+
 data Entity = Entity { _entityID :: Maybe EntityID
                      , _name :: Maybe Name
                      , _targets :: Maybe (Set Target)
@@ -80,10 +85,12 @@ data Entity = Entity { _entityID :: Maybe EntityID
                      , _usable :: UsableState
                      , _edible :: EdibleState
                      , _potable :: PotableState
+                     , _wearable :: WearableState
                      , _onOff :: Maybe OnOffState
                      , _openClosed :: Maybe OpenClosedState
                      , _locationID :: Maybe EntityID
                      , _inventory :: Maybe Inventory
+                     , _wearing :: Maybe Wearing
                      , _toNorth :: Maybe EntityID
                      , _toEast :: Maybe EntityID
                      , _toSouth :: Maybe EntityID
@@ -103,10 +110,12 @@ instance Default Entity where
                , _usable=Unusable
                , _edible=Inedible
                , _potable=Unpotable
+               , _wearable=Unwearable
                , _locationID=Nothing
                , _onOff=Nothing
                , _openClosed=Nothing
                , _inventory=Nothing
+               , _wearing=Nothing
                , _toNorth=Nothing
                , _toEast=Nothing
                , _toSouth=Nothing
@@ -171,25 +180,23 @@ instance TextShow Direction where
 
 data Instruction = Go Direction
                  | Wait
-                 | Use Target
                  | Get Target
                  | Drop Target
                  | Eat Target
-                 | Drink Target
                  | TalkTo Target 
-                 | Give Target Target
-                 | Take Target Target
                  | Look
                  | LookAt Target
                  | Inventory
                  | TurnOn Target
                  | TurnOff Target
+                 | Combine Target Target
+                 | Wear Target
                  | Help
 
 getAllEntities :: (MonadState GameState m) => EntityType -> m [Entity]
 getAllEntities et = do
   es <- gets (view entities)
-  return [snd e | e <- M.toList es, let (EntityID et' _) = fst e in et == et']
+  return [snd e | e <- M.toList es, entityType (snd e) == et]
 
 -- Unsafely get the entity with the given ID
 getEntity :: (MonadState GameState m) => EntityID -> m Entity
@@ -209,11 +216,18 @@ getLocationByName n = do
 getEntityByName :: (MonadState GameState m) => EntityType -> Name -> m (Maybe Entity)
 getEntityByName et n = do
   es <- getAllEntities et
-  let es = [e | e <- es, e^.name == Just n]
-  case es of
+  let matches = [e | e <- es, e^.name == Just n]
+  case matches of
     [] -> return Nothing
     [e] -> return $ Just e
     _ -> error $ "More than one entity named " ++ T.unpack n
+
+-- Unsafe version of the above
+getOneEntityByName :: (MonadState GameState m) => EntityType -> Name -> m Entity
+getOneEntityByName et n = do
+  eM <- getEntityByName et n
+  let (Just e) = eM
+  return e
 
 getOnlyEntity :: (MonadState GameState m) => EntityType -> m Entity
 getOnlyEntity et = do
@@ -248,12 +262,12 @@ mkGameState = GameState { _entities=M.empty
                         , _watchers=[]
                         }
 
-mkSimpleObj :: (MonadState GameState m) => Name -> [Target] -> EntityID -> m Entity
+mkSimpleObj :: (MonadState GameState m) => Name -> [Target] -> Maybe EntityID -> m Entity
 mkSimpleObj name targets locationID = do
   objID <- newID SimpleObj
   let obj = def { _entityID=Just objID
                 , _name=Just name
-                , _locationID=Just locationID
+                , _locationID=locationID
                 , _targets=Just $ S.fromList targets
                 }
   registerEntity obj
@@ -266,6 +280,7 @@ mkPlayer name locationID = do
                    , _name=Just name
                    , _locationID=Just locationID
                    , _inventory=Just S.empty
+                   , _wearing=Just S.empty
                    , _targets=Just $ S.fromList ["me", "self", "myself", "i", "player", "yourself"]
                    }
   registerEntity player
@@ -335,7 +350,7 @@ mkHairband locationID = do
   let hairband = def { _entityID=Just hairbandID
                      , _name=Just "an elasticated hairband"
                      , _locationID=Just locationID
-                     , _targets=Just $ S.fromList ["hairband", "band"]
+                     , _targets=Just $ S.fromList ["hairband", "band", "headband"]
                      , _storable=Storable
                      }
   registerEntity hairband
@@ -358,6 +373,10 @@ modifyEntity f eID = do
 -- Register the given description function with the entity
 addDesc :: (MonadState GameState m) => EntityID -> Description -> m ()
 addDesc eID d = modify $ \s -> s & descriptions %~ M.insert eID d
+
+-- Helpers to build out descriptions
+buildDescription f st eID = evalState (f eID) st
+desc e d = addDesc (e^.?entityID) (buildDescription d)
 
 -- Adds a given alert.
 addAlert :: (MonadState GameState m) => AlertID -> Alert -> m ()
@@ -535,6 +554,14 @@ parseWait = do
   eof
   return Wait
 
+parseEat :: Parser Instruction
+parseEat = do
+  string "eat"
+  spaces
+  target <- many1 anyChar
+  eof
+  return $ Eat (T.pack target)
+
 parseLook :: Parser Instruction
 parseLook = do
   anyString ["l", "look"]
@@ -572,6 +599,26 @@ parseTurnOff = do
   eof
   return $ TurnOff (T.pack target)
 
+parseCombine :: Parser Instruction
+parseCombine = do
+  string "put" <|> string "combine"
+  spaces
+  target1 <- many1 letter
+  spaces
+  string "in" <|> string "with"
+  spaces
+  target2 <- many1 letter
+  eof
+  return $ Combine (T.pack target1) (T.pack target2)
+
+parseWear :: Parser Instruction
+parseWear = do
+  string "wear"
+  spaces
+  target <- many1 letter
+  eof
+  return $ Wear (T.pack target)
+
 instructionParser :: Parser Instruction
 instructionParser =
   try parseGo
@@ -585,12 +632,15 @@ instructionParser =
   <|> try parseTurnOff
   <|> try parseHelp
   <|> try parseTalkTo
+  <|> try parseEat
+  <|> try parseCombine
+  <|> try parseWear
 
 -- Parse out the instruction from the given text string
 parseInstruction :: Text -> Maybe Instruction
 parseInstruction iText =
   case parse instructionParser "" (T.unpack iText) of
-    Left e -> Nothing
+    Left e -> Nothing -- error $ show e
     Right i -> Just i
 
 -- Run f to modify the player.
@@ -676,6 +726,15 @@ enactInstruction (Drop target) = do
         else
           liftIO $ TIO.putStrLn $ e^.?name <> " cannot be dropped"
 
+enactInstruction (Wear target) = do
+  es <- allValidTargetedEntities target
+  case es of
+    [] -> liftIO $ TIO.putStrLn $ "Don't know " <> target
+    es -> do
+      let e = head es
+      liftIO $ TIO.putStrLn $ "You start wearing the " <> (e^.?name)
+      modifyPlayer (over wearing (fmap (S.insert $ e^.?entityID)))
+
 enactInstruction (LookAt target) = do
   es <- allValidTargetedEntities target
   case es of
@@ -715,6 +774,31 @@ enactInstruction (TurnOff target) = do
       let e = head es
       turnOff (e^.?entityID)
 
+enactInstruction (Eat target) = do
+  es <- allValidTargetedEntities target
+  case es of
+    [] -> liftIO $ TIO.putStrLn $ "Don't know what " <> target <> " is"
+    es -> do
+      let e = head es
+      case e^.edible of
+        Edible -> do
+          p <- getPlayer
+          liftIO $ TIO.putStrLn $ "You... you eat the " <> e^.?name
+          modifyPlayer (over inventory (fmap (S.delete $ e^.?entityID)))
+          removeEntity $ e^.?entityID
+          incrementClock
+        Inedible -> liftIO $ TIO.putStrLn $ "You try hard, but " <> (e^.?name) <> " is inedible."
+
+enactInstruction (Combine t1 t2) = do
+  es1 <- allValidTargetedEntities t1
+  es2 <- allValidTargetedEntities t2
+  if null es1
+     then liftIO $ TIO.putStrLn $ "Don't know what " <> t1 <> " is"
+     else if null es2 then liftIO $ TIO.putStrLn $ "Don't know what " <> t2 <> " is"
+     else let e1 = head es1
+              e2 = head es2
+           in combine (e1^.?entityID) (e2^.?entityID)
+
 enactInstruction (TalkTo target) = do
   es <- allValidTargetedEntities target
   case es of
@@ -730,15 +814,45 @@ talkTo eID = do
   -- TODO: Decouple this game logic by adding a convo-waiting response to the entity
   case e^.?name of
     "delivery man" -> do
+      incrementClock
       liftIO $ TIO.putStrLn "\"Fuckin' finally man! What took you? I gotta make hundreds more of these today to get mine!\""
       liftIO $ TIO.putStrLn "The delivery guy swipes a card, throwing open the hatch, slides a ration box through, and leaves hurriedly."
+      liftIO $ TIO.putStrLn "The box tips over, spilling some of its contents."
       -- The guy leaves, the hatch opens
       removeAlert "Delivery"
       removeEntity $ e^.?entityID
-      hatch <- head <$> getTargetedEntitiesNearPlayer "hatch"  -- TODO: horrible
+      hatch <- getOneEntityByName SimpleObj "hatch"
       modifyEntity (set openClosed $ Just Open) (hatch^.?entityID)
-      -- TODO: Bestow the rations
-      -- TODO: Add watcher to close the door in 2 turns
+
+      -- Can now get to the street
+      hallway <- getLocationByName "hallway"
+      street <- getLocationByName "street"
+      modifyEntity (set toNorth $ Just (street^.?entityID)) (hallway^.?entityID)
+
+      -- The hatch shuts after 2 more goes
+      oldTime <- gets (view clock)
+      addWatcher $ execState $ do
+        hatch <- getOneEntityByName SimpleObj "hatch"
+        newTime <- gets (view clock)
+        plunger <- getOneEntityByName SimpleObj "plunger"
+        when (hatch^.?openClosed == Open && newTime == oldTime + 1 && (plunger^.?locationID) /= (hatch ^.?entityID)) $ do
+          addAlert "HatchShut" "The hatch on the front door has slammed shut, and won't reopen for another week."
+          modifyEntity (set openClosed $ Just Closed) (hatch^.?entityID)
+
+      -- The rations arrive
+      paperPlate <- mkSimpleObj "paper plate" ["plate", "paper plate"] (Just $ hallway^.?entityID)
+      modifyEntity (set storable Storable) (paperPlate^.?entityID)
+      desc paperPlate (const $ return "A paper plate, like we used to use at picnics in the before times.")
+
+      rationBox <- mkSimpleObj "ration box" ["ration box", "box"] (Just $ hallway^.?entityID)
+      desc rationBox (const $ return "A brown cardboard box.")
+      modifyEntity (set storable Storable) (rationBox^.?entityID)
+
+      rations <- mkSimpleObj "assorted rations" ["rations"] (Just $ hallway^.?entityID)
+      desc rations (const $ return "Assorted rations - pouches of dehydrated egg, carbohydrate gunge, that sort of thing.")
+      modifyEntity (set storable Storable) (rations^.?entityID)
+      modifyEntity (set edible Edible) (rations^.?entityID)
+
     _ -> liftIO $ TIO.putStrLn $ "Can't talk to " <> e^.?name
 
 turnOn :: (MonadState GameState m, MonadIO m) => EntityID -> m ()
@@ -775,3 +889,31 @@ turnOff eID = do
                     modifyEntity (set onOff $ Just Off) (e^.?entityID)
                     incrementClock
        _ -> liftIO $ TIO.putStrLn "Nothing happens"
+
+combine :: (MonadState GameState m, MonadIO m) => EntityID -> EntityID -> m ()
+combine eID1 eID2 = do
+  e1 <- getEntity eID1
+  e2 <- getEntity eID2
+  case (e1^.?name, e2^.?name) of
+    ("plunger", "hatch") -> do
+      let (plunger, hatch) = (e1, e2)
+      if hatch^.?openClosed == Closed
+         then liftIO $ TIO.putStrLn "The hatch is closed."
+         else do
+           liftIO $ TIO.putStrLn "You use the filthy plunger to prop open the delivery hatch."
+           modifyEntity (set locationID $ Just (hatch^.?entityID)) (plunger^.?entityID)
+           modifyPlayer (over inventory (fmap (S.delete $ plunger^.?entityID)))
+    ("paper plate", "an elasticated hairband") -> makeBand e1 e2
+    ("an elasticated hairband", "paper plate") -> makeBand e2 e1
+    _ -> liftIO $ TIO.putStrLn $ "Can't combine " <> (e1^.?name) <> " and " <> (e2^.?name)
+
+-- Make the makeshift facemask
+makeBand plate band = do
+  liftIO $ TIO.putStrLn "Using your medical expertise and surgical dexterity, you fashion a fucking facemask out of these two unlikely items."
+  modifyPlayer (over inventory (fmap (S.delete $ plate^.?entityID)))
+  modifyPlayer (over inventory (fmap (S.delete $ band^.?entityID)))
+  removeEntity (plate^.?entityID)
+  removeEntity (band^.?entityID)
+  mask <- mkSimpleObj "makeshift facemask" ["facemask", "mask"] Nothing
+  desc mask (const $ return "A super-safe, military grade, virus-repellant face mask.")
+  modifyPlayer (over inventory (fmap (S.insert $ mask^.?entityID)))

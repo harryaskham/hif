@@ -27,6 +27,11 @@ runApp = do
       p <- getPlayer
       modifyEntity (set visited $ Just True) (p^.?locationID)
 
+      -- If we made it to the street, finish
+      -- TODO: remove specificity
+      l <- getPlayerLocation
+      guard (l^.?name /= "street")
+
       -- Get input and run instruction
       liftIO $ TIO.putStr "> "
       instruction <- liftIO TIO.getLine

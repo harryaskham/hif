@@ -6,15 +6,12 @@ module CovidGame where
 import Game
 import Control.Monad.State
 import qualified Data.Text as T
+import qualified Data.Set as S
 import Data.Text (Text)
 import qualified Data.Map.Strict as M
 import Control.Lens
 import Control.Monad
 import Data.Maybe
-
--- Helpers to build out descriptions
-buildDescription f st eID = evalState (f eID) st
-desc e d = addDesc (e^.?entityID) (buildDescription d)
 
 radioLines =
   [ "... absolutely certain that we can keep deaths below twenty - maybe even fift<STATIC>..."
@@ -70,12 +67,13 @@ deliveryKnockWatcher = execState go
 
 hallwayDesc eID = do
   e <- getEntity eID
-  let canLeave = isJust $ e^.toNorth
-  deliveryMan <- getTargetedEntitiesNearPlayer "delivery man"
+  deliveryMan <- getEntityByName Human "delivery man"
+  hatch <- getOneEntityByName SimpleObj "hatch"
   let lines = [ if not (e^.?visited) then Just "You shuffle into the hallway, suppressing a rattling cough." else Nothing
               , Just "Framed family photos thick with dust adorn the walls."
-              , if not canLeave then Just "The front door - for ingress only, of course - is to the North. There's a delivery slot at the bottom."
-                                else Just "The delivery slot on the front door is stuck open."
+              , Just "The front door - for ingress only, of course - is to the North. There's a delivery slot at the bottom."
+              , Just "The flat extends to the West, but I didn't have time to write that code yet, so don't go there."
+              , if (hatch^.?openClosed) == Open then Just "The delivery slot on the front door is stuck open - you could probably fit through..." else Nothing
               , if not . null $ deliveryMan then Just "The ration delivery man is on the other side of the door, shouting at you to confirm receipt." else Nothing
               ]
   return $ T.unlines $ catMaybes lines
@@ -89,6 +87,19 @@ hatchDesc eID = do
               ]
   return $ T.unlines $ catMaybes lines
 
+streetDesc eID = do
+  e <- getEntity eID
+  p <- getPlayer
+  maskM <- getEntityByName SimpleObj "makeshift facemask" 
+  let wearingMask = case maskM of
+                      Nothing -> False
+                      Just mask -> (mask^.?entityID) `S.member` (p^.?wearing) 
+  if wearingMask
+     then return "Your roughshod PPE holds strong as you emerge into the street for the first time in years. What challenges await? Who knows, these things take fucking ages to write. You win, in any case."
+     else return
+       $ "You emerge into the street for the first time in years. As you crawl out of the hatch, your fingers blister upon contact with the harsh and "
+       <> "infected concrete. Your first free breath scours your throat and lungs - you are unable to take a second. Why did you go outside without wearing a mask?"
+
 buildCovidGame :: (MonadState GameState m) => m ()
 buildCovidGame = do
   addAlert "Alarm" "Your alarm clock emits a shrill screech, signalling 05:00 - just half an hour until your shift starts."
@@ -99,7 +110,7 @@ buildCovidGame = do
   bedroom <- mkLocation "bedroom"
   desc bedroom bedroomDesc
 
-  bed <- mkSimpleObj "your bed" ["bed"] (bedroom^.?entityID)
+  bed <- mkSimpleObj "your bed" ["bed"] (Just $ bedroom^.?entityID)
   desc bed (const $ return "Yellowed sheets last changed months ago cover a parabolic mattress. You want back in so, so badly.")
 
   hairband <- mkHairband (bedroom^.?entityID)
@@ -121,13 +132,22 @@ buildCovidGame = do
   modifyEntity (set toNorth $ hallway^.entityID) (bedroom^.?entityID)
   modifyEntity (set toSouth $ bedroom^.entityID) (hallway^.?entityID)
 
-  photos <- mkSimpleObj "photos" ["photo", "photos"] (hallway ^.?entityID)
+  photos <- mkSimpleObj "photos" ["photo", "photos"] (Just $ hallway ^.?entityID)
   desc photos (const $ return "There's one of your parents looking happy a decade before you were born, and another of you nude in a public fountain chasing pigeons.")
-  frontDoor <- mkSimpleObj "front door" ["door", "front door"] (hallway ^.?entityID)
+  frontDoor <- mkSimpleObj "front door" ["door", "front door"] (Just $ hallway ^.?entityID)
   desc frontDoor (const $ return "This used to be your way to the outside world. Now it only yawns, once a week, to receive a box of rations through the hatch in the lower half.")
-  hatch <- mkSimpleObj "hatch" ["hatch", "slot"] (hallway^.?entityID)
+  hatch <- mkSimpleObj "hatch" ["hatch", "slot"] (Just $ hallway^.?entityID)
   desc hatch hatchDesc
   modifyEntity (set openClosed $ Just Closed) (hatch^.?entityID)
 
-  -- TODO: A watcher that adds the front door once open
-  -- TODO: A watcher to open and close the slot at the right time - first watcher opens it, second closes it
+  street <- mkLocation "street"
+  desc street streetDesc
+
+  bathroom <- mkLocation "bathroom"
+  modifyEntity (set toEast $ bathroom^.entityID) (hallway^.?entityID)
+  modifyEntity (set toWest $ hallway^.entityID) (bathroom^.?entityID)
+  desc bathroom (const $ return "You certainly haven't been following the sterilisation guidelines in here.\nAn exotic mould snakes down from the ceiling.\nYou catch a glimpse of yourself in the mirror and recoil in disgust.")
+
+  plunger <- mkSimpleObj "plunger" ["plunger"] (Just $ bathroom^.?entityID)
+  desc plunger (const $ return "A well-used, not-so-well-cleaned toilet plunger. It's about the width of that hatch out there.")
+  modifyEntity (set storable Storable) (plunger^.?entityID)
