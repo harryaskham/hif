@@ -386,7 +386,7 @@ describeCurrentTurn = do
   lDesc <- getDescription $ l^.?entityID
   alertsMap <- gets (view alerts)
   let clockrow = Just $ "The time is " <> showt clock
-      header = Just $ "\n" <> (T.toUpper $ (l^.?name)) <> "\n=========="
+      header = Just $ "\n" <> (T.toUpper (l^.?name)) <> "\n=========="
       desc = Just lDesc
       alerts = case snd <$> M.toList alertsMap of
                  [] -> Nothing
@@ -394,7 +394,7 @@ describeCurrentTurn = do
       thingsHere =
         case length es of
           0 -> Nothing
-          _ -> Just $ "\nYou can see: " <> (T.intercalate ", " ((^.?name) <$> es) <> "\n")
+          _ -> Just $ "\nDEBUG You can see: " <> (T.intercalate ", " ((^.?name) <$> es) <> "\n")
   directions <-
     sequence 
     $ mapMaybe
@@ -412,7 +412,7 @@ describeCurrentTurn = do
       , (toDown, "Below you")
       ]
 
-  -- TODO: Reinstate clock?
+  -- TODO: Reinstate clock / things here
   return $ T.intercalate "\n" (catMaybes [header, desc, alerts, thingsHere] ++ directions)
 
 -- Handle input, potentially running an instruction and modifying game state.
