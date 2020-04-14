@@ -61,7 +61,8 @@ deliveryKnockWatcher = execState go
   where
     go = do
       clock <- gets (view clock)
-      when (clock == 5) $ do
+      deliveryMan <- getEntityByName Human "delivery man"
+      when (clock == 5 && isNothing deliveryMan) $ do
         addAlert "Delivery" "You hear a frantic knocking at your front door. You should get that."
         hallway <- getLocationByName "hallway"
         deliveryMan <- mkHuman "delivery man" ["man", "delivery", "delivery man"] (hallway^.?entityID)

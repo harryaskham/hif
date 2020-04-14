@@ -176,8 +176,7 @@ data Instruction = Go Direction
                  | Drop Target
                  | Eat Target
                  | Drink Target
-                 | Say Speech 
-                 | SayTo Target Speech
+                 | TalkTo Target 
                  | Give Target Target
                  | Take Target Target
                  | Look
@@ -207,6 +206,15 @@ getLocationByName n = do
   es <- getAllEntities Location
   return $ head [e | e <- es, e^.name == Just n]
 
+getEntityByName :: (MonadState GameState m) => EntityType -> Name -> m (Maybe Entity)
+getEntityByName et n = do
+  es <- getAllEntities et
+  let es = [e | e <- es, e^.name == Just n]
+  case es of
+    [] -> return Nothing
+    [e] -> return $ Just e
+    _ -> error $ "More than one entity named " ++ T.unpack n
+
 getOnlyEntity :: (MonadState GameState m) => EntityType -> m Entity
 getOnlyEntity et = do
   es <- getAllEntities et
@@ -221,6 +229,10 @@ getEntitiesAt :: (MonadState GameState m) => EntityID -> m [Entity]
 getEntitiesAt lID = do
   es <- gets (view entities)
   return [e | e <- snd <$> M.toList es, (e^.locationID) == Just lID]
+
+-- Deletes an entity.
+removeEntity :: (MonadState GameState m) => EntityID -> m ()
+removeEntity eID = modify $ \s -> s & entities %~ M.delete eID
 
 -- Non-thread-safe way to get a new entity ID.
 newID :: (MonadState GameState m) => EntityType -> m EntityID
@@ -536,6 +548,14 @@ parseLookAt = do
   eof
   return $ LookAt (T.pack target)
 
+parseTalkTo :: Parser Instruction
+parseTalkTo = do
+  string "talk to" <|> string "answer"
+  spaces
+  target <- many1 anyChar
+  eof
+  return $ TalkTo (T.pack target)
+
 parseTurnOn :: Parser Instruction
 parseTurnOn = do
   string "turn on"
@@ -564,6 +584,7 @@ instructionParser =
   <|> try parseTurnOn
   <|> try parseTurnOff
   <|> try parseHelp
+  <|> try parseTalkTo
 
 -- Parse out the instruction from the given text string
 parseInstruction :: Text -> Maybe Instruction
@@ -693,6 +714,32 @@ enactInstruction (TurnOff target) = do
     es -> do
       let e = head es
       turnOff (e^.?entityID)
+
+enactInstruction (TalkTo target) = do
+  es <- allValidTargetedEntities target
+  case es of
+    [] -> liftIO $ TIO.putStrLn $ "Don't know what " <> target <> " is"
+    es -> do
+      let e = head es
+      talkTo (e^.?entityID)
+
+talkTo :: (MonadState GameState m, MonadIO m) => EntityID -> m ()
+talkTo eID = do
+  e <- getEntity eID
+  -- TODO: Vastly improve the conversation router.
+  -- TODO: Decouple this game logic by adding a convo-waiting response to the entity
+  case e^.?name of
+    "delivery man" -> do
+      liftIO $ TIO.putStrLn "\"Fuckin' finally man! What took you? I gotta make hundreds more of these today to get mine!\""
+      liftIO $ TIO.putStrLn "The delivery guy swipes a card, throwing open the hatch, slides a ration box through, and leaves hurriedly."
+      -- The guy leaves, the hatch opens
+      removeAlert "Delivery"
+      removeEntity $ e^.?entityID
+      hatch <- head <$> getTargetedEntitiesNearPlayer "hatch"  -- TODO: horrible
+      modifyEntity (set openClosed $ Just Open) (hatch^.?entityID)
+      -- TODO: Bestow the rations
+      -- TODO: Add watcher to close the door in 2 turns
+    _ -> liftIO $ TIO.putStrLn $ "Can't talk to " <> e^.?name
 
 turnOn :: (MonadState GameState m, MonadIO m) => EntityID -> m ()
 turnOn eID = do
