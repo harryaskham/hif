@@ -13,7 +13,6 @@ import Control.Monad
 
 runApp :: App ()
 runApp = do
-  -- buildSimpleGame
   buildCovidGame
   loop
   where
@@ -30,16 +29,17 @@ runApp = do
       -- If we made it to the street, finish
       -- TODO: remove specificity
       l <- getPlayerLocation
-      guard (l^.?name /= "street")
+      if l^.?name == "street"
+         then  liftIO $ TIO.putStrLn "END OF STORY SO FAR"
+         else do
+           -- Get input and run instruction
+           liftIO $ TIO.putStr "> "
+           instruction <- liftIO TIO.getLine
+           runInstruction instruction
 
-      -- Get input and run instruction
-      liftIO $ TIO.putStr "> "
-      instruction <- liftIO TIO.getLine
-      runInstruction instruction
-
-      -- Run any predicates and re-loop
-      runWatchers
-      loop
+           -- Run any predicates and re-loop
+           runWatchers
+           loop
 
 main :: IO ()
 main = do
