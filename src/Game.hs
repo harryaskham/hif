@@ -34,6 +34,7 @@ data EntityType = Player
                 | Radio
                 | Alarm
                 | SimpleObj
+                | HairBand
                 deriving (Eq, Show, Ord)
 
 -- A unique ID for each type of entity
@@ -302,6 +303,18 @@ mkAlarm locationID = do
                   }
   registerEntity alarm
   return alarm
+
+mkHairband :: (MonadState GameState m) => EntityID -> m Entity
+mkHairband locationID = do
+  hairbandID <- newID HairBand
+  let hairband = def { _entityID=Just hairbandID
+                     , _name=Just "an elasticated hairband"
+                     , _locationID=Just locationID
+                     , _targets=Just $ S.fromList ["hairband", "band"]
+                     , _storable=Storable
+                     }
+  registerEntity hairband
+  return hairband
   
 -- Write an entity back to the register.
 registerEntity :: (MonadState GameState m) => Entity -> m ()
@@ -394,7 +407,7 @@ describeCurrentTurn = do
       thingsHere =
         case length es of
           0 -> Nothing
-          _ -> Just $ "\nDEBUG You can see: " <> (T.intercalate ", " ((^.?name) <$> es) <> "\n")
+          _ -> Just $ "\nYou can see: " <> (T.intercalate ", " ((^.?name) <$> es) <> "\n")
   directions <-
     sequence 
     $ mapMaybe
@@ -671,6 +684,7 @@ turnOn eID = do
                   Off -> do
                     liftIO $ TIO.putStrLn "You twist the dial until the bad news starts to roll once more."
                     modifyEntity (set onOff $ Just On) (e^.?entityID)
+                    incrementClock
                   On -> liftIO $ TIO.putStrLn "Already chirping away, friend."
        _ -> liftIO $ TIO.putStrLn "Nothing happens"
 
@@ -685,9 +699,11 @@ turnOff eID = do
                   On -> do
                     liftIO $ TIO.putStrLn "You slam a calloused hand onto the rusty metal bells, and the alarm is silenced."
                     modifyEntity (set onOff $ Just Off) (e^.?entityID)
+                    incrementClock
        Radio -> case e^.?onOff of
                   Off -> liftIO $ TIO.putStrLn "The radio is already off."
                   On -> do
                     liftIO $ TIO.putStrLn "There's no off switch, but you dial your way to the most quiet static you can find."
                     modifyEntity (set onOff $ Just Off) (e^.?entityID)
+                    incrementClock
        _ -> liftIO $ TIO.putStrLn "Nothing happens"

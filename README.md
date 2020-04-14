@@ -41,6 +41,7 @@ power suddenly cuts out! that must be the government line. You hear a clunk come
 player leaves without n95 mask on - ushered back inside by police, but the temporary exposure gives symptoms. a week later, bulbous sores erupt on back and legs, and lungs fill with fetid blood. ded
 
 player wears n95 and can now leave the house behind. milestone 1
+player has to fashion an n95 mask out of some bullshit stuff
 
 no internet, basic comms - look through footage on tapes and scour for groups of more than 2
 
@@ -52,3 +53,4 @@ no internet, basic comms - look through footage on tapes and scour for groups of
 - break things - with a broken status
 - bed to look unde
 - synechdoche stuff - look under lid, for example
+- repeat the mantra on the radio

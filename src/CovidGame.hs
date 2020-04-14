@@ -19,7 +19,7 @@ desc e d = addDesc (e^.?entityID) (buildDescription d)
 radioLines =
   [ "... absolutely certain that we can keep deaths below twenty - maybe even fift<STATIC>..."
   , "...<STATIC>illion. I'm told that this morning's Hancock Simulation puts a vaccine only a few weeks away..."
-  , "...and so remember. Repeat: STAY AT HOME. REMEMBER THE NHS. DEFY DEATH. STAY AT..."
+  , "...and so remember - please - and repeat: STAY AT HOME. REMEMBER THE NHS. DEFY DEATH. STAY AT..."
   ] ++ repeat "...HOME. REMEMBER THE NHS. DEFY DEATH. STAY AT..."
 
 bedroomDesc eID = do
@@ -28,7 +28,7 @@ bedroomDesc eID = do
   radio <- getOnlyEntity Radio
   let lines = [ if not (e^.?visited) then Just "You awake on Day 812 of The Quarantine.\n\nHalf-forgetten dreams of exponential curves leave you as you reluctantly get out of bed." else Nothing
               , Just "This is your childhood bedroom.\nThe indigo wallpaper you chose for your tenth birthday peels from the walls in uneven patches.\nThe bed is single and sweat-damp - the walls too, ever since they closed up all the vents."
-              , if radio^.?onOff == On then Just $ "The wall radio blares a 24/7 cast of the Boris Johnson simulacrum:\n  \"" <> (radioLines !! fromIntegral clock) <> "\"" else Nothing
+              , if radio^.?onOff == On then Just $ "\nThe wall radio blares a 24/7 cast of the Boris Johnson simulacrum:\n  \"" <> (radioLines !! fromIntegral clock) <> "\"" else Nothing
               ]
   return $ T.unlines $ catMaybes lines
 
@@ -75,6 +75,9 @@ buildCovidGame = do
 
   bed <- mkSimpleObj "your bed" ["bed"] (bedroom^.?entityID)
   desc bed (const $ return "Yellowed sheets last changed months ago cover a parabolic mattress.")
+
+  hairband <- mkHairband (bedroom^.?entityID)
+  desc hairband (const $ return "A faded elasticated hairband. Your head's big but it looks like it'd get around it.")
 
   player <- mkPlayer "yourself" $ bedroom^.?entityID
   desc player playerDesc
