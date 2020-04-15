@@ -7,7 +7,6 @@
 - synechdoche stuff - look under lid, for example
 
 - Achievements for weird trhigs - alarm in the bathtub
-- Unlimited UNDO via state stack
 - repeat the mantra on the radio for special ending
 - look at things shows things in them
 - queries - what is X
