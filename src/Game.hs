@@ -763,6 +763,8 @@ enactInstruction (Say content) = do
       <> "Your body expires, but your immortal soul lives may yet live on in the Hancock Machine.")
     modifyPlayer (set locationID $ Just $ ap^.?entityID)
 
+  deliveryMan <- getEntityByName Human "delivery man"
+  when ( (l^.?name) == "hallway" && isJust deliveryMan) $ enactInstruction (TalkTo "delivery man")
 
 enactInstruction Help =
   liftIO
