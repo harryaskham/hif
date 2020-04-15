@@ -132,6 +132,9 @@ entityType e = let (EntityID et _) = (e^.?entityID) in et
 type AlertID = Text
 type Alert = Text
 
+type AchievementID = Text
+data Achievement = Achievement AchievementID Text
+
 data GameState = GameState { _entities :: Map EntityID Entity
                            , _descriptions :: Map EntityID (GameState -> EntityID -> Text)
                            , _clock :: Integer
@@ -139,6 +142,7 @@ data GameState = GameState { _entities :: Map EntityID Entity
                            -- TODO: Better reconcile this to use 
                            , _watchers :: [GameState -> GameState]
                            , _history :: [GameState]
+                           , _achievements :: Map AchievementID Achievement
                            }
 makeLenses ''GameState
 
@@ -161,6 +165,16 @@ runWatchers :: (MonadState GameState m) => m ()
 runWatchers = do
   ws <- gets (view watchers)
   modify $ foldl (.) id ws
+
+addAchievement :: (MonadState GameState m, MonadIO m) => Achievement -> m ()
+addAchievement a@(Achievement aID aContent) = do
+  liftIO $ TIO.putStrLn $ "ACHIEVEMENT UNLOCKED:\n" <> aID <> "\n" <> aContent
+  modify (\s -> s & achievements %~ M.insert aID a)
+
+hasAchievement :: (MonadState GameState m) => AchievementID -> m Bool
+hasAchievement aID = do
+  as <- gets (view achievements)
+  return $ M.member aID as
 
 type Speech = Text
 
@@ -270,6 +284,7 @@ mkGameState = GameState { _entities=M.empty
                         , _alerts=M.empty
                         , _watchers=[]
                         , _history=[]
+                        , _achievements=M.empty
                         }
 
 mkSimpleObj :: (MonadState GameState m) => Name -> [Target] -> Maybe EntityID -> m Entity

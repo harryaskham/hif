@@ -100,6 +100,24 @@ streetDesc eID = do
        $ "You emerge into the street for the first time in years. As you crawl out of the hatch, your fingers blister upon contact with the harsh and "
        <> "infected concrete. Your first free breath scours your throat and lungs - you are unable to take a second. Why did you go outside without wearing a mask?"
 
+bathDesc eID = do
+  e <- getEntity eID
+  let isOn = e^.?onOff == On
+  let lines = [ Just "A crust of your skin coats the bottom of the freestanding tub. You ran out of domestic cleaning products in the first month of Quarantine. There is no plug."
+              , if isOn then Just "The water enters the overflow, and the taps continue to pour." else Just "The taps are off right now. Don't waste water."
+              ]
+  return $ T.unlines $ catMaybes lines
+
+alarmBathWatcher :: Watcher
+alarmBathWatcher = execState go
+  where
+    go = do
+      alarm <- getOnlyEntity Alarm
+      bath <- getOneEntityByName SimpleObj "bath"
+      hasCheev <- hasAchievement "Big Wet Clock"
+      when (not hasCheev && alarm^.?locationID == bath^.?entityID)
+        $ addAchievement $ Achievement "Big Wet Clock" "Why did you do this???"
+
 buildCovidGame :: (MonadState GameState m) => m ()
 buildCovidGame = do
   addAlert "Alarm" "Your alarm clock emits a shrill screech, signalling 05:00 - just half an hour until your shift starts."
@@ -151,3 +169,8 @@ buildCovidGame = do
   plunger <- mkSimpleObj "plunger" ["plunger"] (Just $ bathroom^.?entityID)
   desc plunger (const $ return "A well-used, not-so-well-cleaned toilet plunger. It's about the width of that hatch out there.")
   modifyEntity (set storable Storable) (plunger^.?entityID)
+
+  bath <- mkSimpleObj "bath" ["bath", "tub", "bathtub", "tap", "taps"] (Just $ bathroom^.?entityID)
+  modifyEntity (set onOff $ Just Off) (bath^.?entityID)
+  desc bath bathDesc
+

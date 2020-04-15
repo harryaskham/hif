@@ -8,7 +8,6 @@
 
 - Achievements for weird trhigs - alarm in the bathtub
 - repeat the mantra on the radio for special ending
-- look at things shows things in them
 - queries - what is X
 - more verbs
 - Endgame triggers
@@ -23,3 +22,4 @@ Remove specificity of things
 - In fact, all action potentials are registered and stored
 - We should have IDs for items - things more like simpleObj than anything else
 - inventory management as helper func
+- TIO printing helper func
