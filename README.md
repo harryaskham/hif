@@ -6,7 +6,6 @@
 - break things - with a broken status
 - synechdoche stuff - look under lid, for example
 
-- Achievements for weird trhigs - alarm in the bathtub
 - repeat the mantra on the radio for special ending
 - queries - what is X
 - more verbs

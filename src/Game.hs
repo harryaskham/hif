@@ -142,6 +142,7 @@ data GameState = GameState { _entities :: Map EntityID Entity
                            , _watchers :: [StateT GameState IO ()]
                            , _history :: [GameState]
                            , _achievements :: Map AchievementID Achievement
+                           , _gameOver :: Bool
                            }
 makeLenses ''GameState
 
@@ -276,6 +277,9 @@ getEntitiesAt lID = do
 removeEntity :: (MonadState GameState m) => EntityID -> m ()
 removeEntity eID = modify $ \s -> s & entities %~ M.delete eID
 
+setGameOver :: (MonadState GameState m) => m ()
+setGameOver = modify $ set gameOver True
+
 -- Non-thread-safe way to get a new entity ID.
 newID :: (MonadState GameState m) => EntityType -> m EntityID
 newID et = do
@@ -290,6 +294,7 @@ mkGameState = GameState { _entities=M.empty
                         , _watchers=[]
                         , _history=[]
                         , _achievements=M.empty
+                        , _gameOver=False
                         }
 
 mkSimpleObj :: (MonadState GameState m) => Name -> [Target] -> Maybe EntityID -> m Entity

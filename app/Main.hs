@@ -26,10 +26,9 @@ runApp = do
       p <- getPlayer
       modifyEntity (set visited $ Just True) (p^.?locationID)
 
-      -- If we made it to the street, finish
-      -- TODO: remove specificity for street
-      l <- getPlayerLocation
-      if l^.?name == "street"
+      -- End game if it's over
+      isOver <- gets (view gameOver)
+      if isOver
          then do
            liftIO $ TIO.putStrLn "END OF STORY SO FAR"
            _ <- liftIO getLine

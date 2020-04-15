@@ -84,7 +84,7 @@ hatchDesc eID = do
 streetDesc eID = do
   e <- getEntity eID
   p <- getPlayer
-  maskM <- getEntityByName SimpleObj "makeshift facemask" 
+  maskM <- getEntityByName SimpleObj "makeshift facemask"
   let wearingMask = case maskM of
                       Nothing -> False
                       Just mask -> (mask^.?entityID) `S.member` (p^.?wearing) 
@@ -93,6 +93,11 @@ streetDesc eID = do
      else return
        $ "You emerge into the street for the first time in years. As you crawl out of the hatch, your fingers blister upon contact with the harsh and "
        <> "infected concrete. Your first free breath scours your throat and lungs - you are unable to take a second. Why did you go outside without wearing a mask?"
+
+streetEndgameWatcher :: (MonadState GameState m) => m ()
+streetEndgameWatcher = do
+  l <- getPlayerLocation
+  when (l^.?name == "street") setGameOver
 
 bathDesc eID = do
   e <- getEntity eID
@@ -167,3 +172,4 @@ buildCovidGame = do
   desc bath bathDesc
   
   addWatcher alarmBathWatcher
+  addWatcher streetEndgameWatcher
