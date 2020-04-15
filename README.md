@@ -13,6 +13,7 @@
 - look at things shows things in them
 - queries - what is X
 - more verbs
+- Endgame triggers
 
 
 CLEANUP

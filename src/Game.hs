@@ -239,10 +239,14 @@ getOnlyEntity et = do
 
 -- Get all entities at a given location.
 -- Should usually not include the player itself
+-- Also recursively gets all entities inside all other things...
 getEntitiesAt :: (MonadState GameState m) => EntityID -> m [Entity]
 getEntitiesAt lID = do
   es <- gets (view entities)
-  return [e | e <- snd <$> M.toList es, (e^.locationID) == Just lID]
+  let esHere = [e | e <- snd <$> M.toList es, (e^.locationID) == Just lID]
+      eIDs = (^.?entityID) <$> esHere
+  hiddenEs <- traverse getEntitiesAt eIDs
+  return $ esHere ++ concat hiddenEs
 
 -- Deletes an entity.
 removeEntity :: (MonadState GameState m) => EntityID -> m ()
@@ -715,7 +719,7 @@ enactInstruction (Get target) = do
     [] -> liftIO $ TIO.putStrLn $ "No " <> target <> " to get."
     es -> do
       let e = head es
-      if (e^.?locationID) == (p^.?locationID) && e^.storable == Storable
+      if isJust (e^.locationID) && e^.storable == Storable
          then do
            modifyEntity (set locationID Nothing) (e^.?entityID)
            modifyPlayer (over inventory (fmap (S.insert $ e^.?entityID)))
@@ -763,6 +767,10 @@ enactInstruction (LookAt target) = do
       let e = head es
       d <- getDescription (e^.?entityID)
       liftIO $ TIO.putStrLn d
+      -- Report on anything the thing contains
+      containedEs <- getEntitiesAt (e^.?entityID)
+      unless (null containedEs)
+        $ liftIO $ TIO.putStrLn $ "Inside is: " <> T.intercalate ", " ((^.?name) <$> containedEs)
 
 enactInstruction Look = liftIO $ TIO.putStrLn "You look around... some more?"
 
@@ -862,7 +870,7 @@ talkTo eID = do
         hatch <- getOneEntityByName SimpleObj "hatch"
         newTime <- gets (view clock)
         plunger <- getOneEntityByName SimpleObj "plunger"
-        when (hatch^.?openClosed == Open && newTime == oldTime + 1 && (plunger^.locationID) /= (hatch ^.entityID)) $ do
+        when (hatch^.?openClosed == Open && newTime >= oldTime + 1 && (plunger^.locationID) /= (hatch ^.entityID)) $ do
           addAlert "HatchShut" "The hatch on the front door has slammed shut, and won't reopen for another week."
           modifyEntity (set openClosed $ Just Closed) (hatch^.?entityID)
 
