@@ -352,6 +352,7 @@ mkHairband locationID = do
                      , _locationID=Just locationID
                      , _targets=Just $ S.fromList ["hairband", "band", "headband"]
                      , _storable=Storable
+                     , _wearable=Wearable
                      }
   registerEntity hairband
   return hairband
@@ -605,7 +606,7 @@ parseCombine = do
   spaces
   target1 <- many1 letter
   spaces
-  string "in" <|> string "with"
+  string "in" <|> string "with" <|> string "and"
   spaces
   target2 <- many1 letter
   eof
@@ -680,6 +681,11 @@ getInventoryEntities = do
   p <- getPlayer
   traverse getEntity (S.toList $ p^.?inventory)
 
+getPlayerWornEntities :: (MonadState GameState m) => m [Entity]
+getPlayerWornEntities = do
+  p <- getPlayer
+  traverse getEntity (S.toList $ p^.?wearing)
+
 filterInventoryByTarget :: (MonadState GameState m) => Target -> m [Entity]
 filterInventoryByTarget t = filterByTarget t <$> getInventoryEntities
 
@@ -725,13 +731,13 @@ enactInstruction (Drop target) = do
     [] -> liftIO $ TIO.putStrLn $ "No " <> target <> " to drop."
     es -> do
       let e = head es
-      if e^.droppable == Droppable
-         then do
+      case e^.droppable of
+        Droppable -> do
            modifyEntity (set locationID (l^.entityID)) (e^.?entityID)
            modifyPlayer (over inventory (fmap (S.delete $ e^.?entityID)))
            incrementClock
            liftIO $ TIO.putStrLn $ "You drop the " <> target
-        else
+        Undroppable ->
           liftIO $ TIO.putStrLn $ e^.?name <> " cannot be dropped"
 
 enactInstruction (Wear target) = do
@@ -740,8 +746,14 @@ enactInstruction (Wear target) = do
     [] -> liftIO $ TIO.putStrLn $ "Don't know " <> target
     es -> do
       let e = head es
-      liftIO $ TIO.putStrLn $ "You start wearing the " <> (e^.?name)
-      modifyPlayer (over wearing (fmap (S.insert $ e^.?entityID)))
+      case e^.wearable of
+        Wearable -> do
+          liftIO $ TIO.putStrLn $ "You start wearing the " <> (e^.?name)
+          modifyPlayer (over wearing (fmap (S.insert $ e^.?entityID)))
+          modifyPlayer (over inventory (fmap (S.delete $ e^.?entityID)))
+          modifyEntity (set locationID Nothing) (e^.?entityID)
+        Unwearable ->
+          liftIO $ TIO.putStrLn $ e^.?name <> " cannot be worn"
 
 enactInstruction (LookAt target) = do
   es <- allValidTargetedEntities target
@@ -756,11 +768,18 @@ enactInstruction Look = liftIO $ TIO.putStrLn "You look around... some more?"
 
 enactInstruction Inventory = do
   p <- getPlayer
-  case S.size (p^.?inventory) of
-    0 -> liftIO $ TIO.putStrLn "Your inventory is empty."
-    _ -> do
-      es <- getInventoryEntities
-      liftIO $ TIO.putStrLn $ "You have: " <> T.intercalate ", " ((^.?name) <$> es)
+  invMsg <- case S.size (p^.?inventory) of
+              0 -> return "Your inventory is empty."
+              _ -> do
+                es <- getInventoryEntities
+                return $ "You have: " <> T.intercalate ", " ((^.?name) <$> es)
+  wearMsg <- case S.size (p^.?wearing) of
+               0 -> return "You are not wearing anything special."
+               _ -> do
+                 es <- getPlayerWornEntities
+                 return $ "You are wearing: " <> T.intercalate ", " ((^.?name) <$> es)
+  liftIO $ TIO.putStrLn $ invMsg <> "\n" <> wearMsg
+
 
 enactInstruction Wait = do
   incrementClock
