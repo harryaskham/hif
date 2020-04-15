@@ -23,3 +23,4 @@ Remove specificity of things
 - We should have IDs for items - things more like simpleObj than anything else
 - inventory management as helper func
 - TIO printing helper func
+- TurnOn/Off etc handlers attached to the things themselves

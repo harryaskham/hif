@@ -46,24 +46,18 @@ alarmDesc eID = do
 -- TODO: Hint at needing to wash to progress
 playerDesc eID = return "You look like shit. Beard well past shoulder-length but still patchy after all this time."
 
-alarmWatcher :: Watcher
-alarmWatcher = execState go
-  where
-    go = do
-      e <- getOnlyEntity Alarm
-      when ((e^.?onOff) == Off) $ removeAlert "Alarm"
+alarmWatcher = do
+  e <- getOnlyEntity Alarm
+  when ((e^.?onOff) == Off) $ removeAlert "Alarm"
 
-deliveryKnockWatcher :: Watcher
-deliveryKnockWatcher = execState go
-  where
-    go = do
-      clock <- gets (view clock)
-      deliveryMan <- getEntityByName Human "delivery man"
-      when (clock == 5 && isNothing deliveryMan) $ do
-        addAlert "Delivery" "You hear a frantic knocking at your front door. You should get that."
-        hallway <- getLocationByName "hallway"
-        deliveryMan <- mkHuman "delivery man" ["man", "delivery", "delivery man"] (hallway^.?entityID)
-        desc deliveryMan (const $ return "You can't see him too well through the frosted glass, but you can hear him okay")
+deliveryKnockWatcher = do
+  clock <- gets (view clock)
+  deliveryMan <- getEntityByName Human "delivery man"
+  when (clock == 5 && isNothing deliveryMan) $ do
+    addAlert "Delivery" "You hear a frantic knocking at your front door. You should get that."
+    hallway <- getLocationByName "hallway"
+    deliveryMan <- mkHuman "delivery man" ["man", "delivery", "delivery man"] (hallway^.?entityID)
+    desc deliveryMan (const $ return "You can't see him too well through the frosted glass, but you can hear him okay")
 
 hallwayDesc eID = do
   e <- getEntity eID
@@ -108,15 +102,13 @@ bathDesc eID = do
               ]
   return $ T.unlines $ catMaybes lines
 
-alarmBathWatcher :: Watcher
-alarmBathWatcher = execState go
-  where
-    go = do
-      alarm <- getOnlyEntity Alarm
-      bath <- getOneEntityByName SimpleObj "bath"
-      hasCheev <- hasAchievement "Big Wet Clock"
-      when (not hasCheev && alarm^.?locationID == bath^.?entityID)
-        $ addAchievement $ Achievement "Big Wet Clock" "Why did you do this???"
+alarmBathWatcher :: (MonadState GameState m, MonadIO m) => m ()
+alarmBathWatcher = do
+  alarm <- getOnlyEntity Alarm
+  bath <- getOneEntityByName SimpleObj "bath"
+  hasCheev <- hasAchievement "Big Wet Clock"
+  when (not hasCheev && alarm^.locationID == bath^.entityID && bath^.?onOff == On)
+    $ addAchievement $ Achievement "Big Wet Clock" "Why did you do this???"
 
 buildCovidGame :: (MonadState GameState m) => m ()
 buildCovidGame = do
@@ -173,4 +165,5 @@ buildCovidGame = do
   bath <- mkSimpleObj "bath" ["bath", "tub", "bathtub", "tap", "taps"] (Just $ bathroom^.?entityID)
   modifyEntity (set onOff $ Just Off) (bath^.?entityID)
   desc bath bathDesc
-
+  
+  addWatcher alarmBathWatcher

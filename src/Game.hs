@@ -139,8 +139,7 @@ data GameState = GameState { _entities :: Map EntityID Entity
                            , _descriptions :: Map EntityID (GameState -> EntityID -> Text)
                            , _clock :: Integer
                            , _alerts :: Map AlertID Alert
-                           -- TODO: Better reconcile this to use 
-                           , _watchers :: [GameState -> GameState]
+                           , _watchers :: [StateT GameState IO ()]
                            , _history :: [GameState]
                            , _achievements :: Map AchievementID Achievement
                            }
@@ -154,17 +153,22 @@ type App = StateT GameState IO
 type Description = GameState -> EntityID -> Text
 
 -- TODO: Figure out as per above, should be monadic and avoid circular reference
-type Watcher = (GameState -> GameState)
+type Watcher = App ()
 
 -- Add a watcher to the game checking for things. Run every turn.
 addWatcher :: (MonadState GameState m) => Watcher -> m ()
 addWatcher w = modify $ \s -> s & watchers %~ (w:)
 
 -- Run all watchers
-runWatchers :: (MonadState GameState m) => m ()
+runWatchers :: App ()
 runWatchers = do
   ws <- gets (view watchers)
-  modify $ foldl (.) id ws
+  go ws
+    where
+      go [] = return ()
+      go (w:ws) = do
+        _ <- w
+        go ws
 
 addAchievement :: (MonadState GameState m, MonadIO m) => Achievement -> m ()
 addAchievement a@(Achievement aID aContent) = do
@@ -360,7 +364,7 @@ mkAlarm :: (MonadState GameState m) => EntityID -> m Entity
 mkAlarm locationID = do
   alarmID <- newID Alarm
   let alarm = def { _entityID=Just alarmID
-                  , _name=Just "an alarm clock"
+                  , _name=Just "alarm clock"
                   , _locationID=Just locationID
                   , _targets=Just $ S.fromList ["alarm", "clock", "alarm clock"]
                   , _storable=Storable
@@ -411,27 +415,6 @@ addAlert aID a = modify $ \s -> s & alerts %~ M.insert aID a
 -- Removes the given alert.
 removeAlert :: (MonadState GameState m) => AlertID -> m ()
 removeAlert aID = modify $ \s -> s & alerts %~ M.delete aID
-
-buildSimpleGame :: (MonadState GameState m) => m ()
-buildSimpleGame = do
-  addAlert "Alert1" "This is an alert for 4 turns"
-  let watcher st = if st^.clock == 5 then st & alerts %~ M.delete "Alert1" else st
-  addWatcher watcher
-
-  southRoom <- mkLocation "South Room" 
-  let southRoomDesc st eID = "This is " <> (e^.?name) <> " at time " <> showt (st^.clock)
-        where
-          -- TODO: This is horrible, need to figure out how to have descriptions be monadic
-          (Just e) = M.lookup eID $ st^.entities
-  addDesc (southRoom^.?entityID) southRoomDesc
-
-  player <- mkPlayer "Player" (southRoom^.?entityID)
-  rock <- mkRock (southRoom^.?entityID)
-
-  northRoom <- mkLocation "North Room"
-  addDesc (northRoom^.?entityID) (\_ _ -> "This is the northernmost room")
-  modifyEntity (set toSouth (Just $ southRoom^.?entityID)) (northRoom^.?entityID)
-  modifyEntity (set toNorth (Just $ northRoom^.?entityID)) (southRoom^.?entityID)
 
 -- Get the single player entity
 getPlayer :: (MonadState GameState m) => m Entity
@@ -882,7 +865,7 @@ enactInstruction (Eat target) = do
           modifyPlayer (over inventory (fmap (S.delete $ e^.?entityID)))
           removeEntity $ e^.?entityID
           incrementClock
-        Inedible -> liftIO $ TIO.putStrLn $ "You try hard, but " <> (e^.?name) <> " is inedible."
+        Inedible -> liftIO $ TIO.putStrLn $ "You try hard, but the " <> (e^.?name) <> " is inedible."
 
 enactInstruction (Combine t1 t2) = do
   es1 <- allValidTargetedEntities t1
@@ -926,7 +909,7 @@ talkTo eID = do
 
       -- The hatch shuts after 2 more goes
       oldTime <- gets (view clock)
-      addWatcher $ execState $ do
+      addWatcher $ do
         hatch <- getOneEntityByName SimpleObj "hatch"
         newTime <- gets (view clock)
         plunger <- getOneEntityByName SimpleObj "plunger"
@@ -963,6 +946,12 @@ turnOn eID = do
                     modifyEntity (set onOff $ Just On) (e^.?entityID)
                     incrementClock
                   On -> liftIO $ TIO.putStrLn "Already chirping away, friend."
+       SimpleObj -> case e^.?name of
+                      "bath" -> do
+                        liftIO $ TIO.putStrLn "You turn the rusty taps, and water floods the rotten tub. It quickly reaches the overflow."
+                        modifyEntity (set onOff $ Just On) (e^.?entityID)
+                        incrementClock
+                      n -> liftIO $ TIO.putStrLn $ "Can't turn on " <> n
        _ -> liftIO $ TIO.putStrLn "Nothing happens"
 
 turnOff :: (MonadState GameState m, MonadIO m) => EntityID -> m ()
@@ -983,6 +972,12 @@ turnOff eID = do
                     liftIO $ TIO.putStrLn "There's no off switch, but you dial your way to the most quiet static you can find."
                     modifyEntity (set onOff $ Just Off) (e^.?entityID)
                     incrementClock
+       SimpleObj -> case e^.?name of
+                      "bath" -> do
+                        liftIO $ TIO.putStrLn "You turn off the taps and the water quickly drains through the open plug."
+                        modifyEntity (set onOff $ Just Off) (e^.?entityID)
+                        incrementClock
+                      n -> liftIO $ TIO.putStrLn $ "Can't turn off " <> n
        _ -> liftIO $ TIO.putStrLn "Nothing happens"
 
 combine :: (MonadState GameState m, MonadIO m) => EntityID -> EntityID -> m ()
@@ -1000,6 +995,10 @@ combine eID1 eID2 = do
            modifyPlayer (over inventory (fmap (S.delete $ plunger^.?entityID)))
     ("paper plate", "an elasticated hairband") -> makeBand e1 e2
     ("an elasticated hairband", "paper plate") -> makeBand e2 e1
+    ("alarm clock", "bath") -> do
+      liftIO $ TIO.putStrLn "You place the alarm clock into the bath, like a normal person would."
+      modifyPlayer (over inventory (fmap (S.delete $ e1^.?entityID)))
+      modifyEntity (set locationID $ Just (e2^.?entityID)) (e1^.?entityID)
     _ -> liftIO $ TIO.putStrLn $ "Can't combine " <> (e1^.?name) <> " and " <> (e2^.?name)
 
 -- Make the makeshift facemask
