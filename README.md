@@ -6,7 +6,6 @@
 - break things - with a broken status
 - synechdoche stuff - look under lid, for example
 
-- unwear something
 - Achievements for weird trhigs - alarm in the bathtub
 - Unlimited UNDO via state stack
 - repeat the mantra on the radio for special ending

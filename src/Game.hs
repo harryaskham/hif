@@ -191,6 +191,7 @@ data Instruction = Go Direction
                  | TurnOff Target
                  | Combine Target Target
                  | Wear Target
+                 | Remove Target
                  | Help
 
 getAllEntities :: (MonadState GameState m) => EntityType -> m [Entity]
@@ -624,6 +625,14 @@ parseWear = do
   eof
   return $ Wear (T.pack target)
 
+parseRemove :: Parser Instruction
+parseRemove = do
+  string "remove"
+  spaces
+  target <- many1 letter
+  eof
+  return $ Remove (T.pack target)
+
 instructionParser :: Parser Instruction
 instructionParser =
   try parseGo
@@ -640,6 +649,7 @@ instructionParser =
   <|> try parseEat
   <|> try parseCombine
   <|> try parseWear
+  <|> try parseRemove
 
 -- Parse out the instruction from the given text string
 parseInstruction :: Text -> Maybe Instruction
@@ -707,9 +717,9 @@ enactInstruction Help =
   $ TIO.putStrLn
   $ T.unlines [ "You can 'go north', 'north' or just 'n'."
               , "If nothing is happening, just 'wait'"
+              , "'eat' stuff! 'wear' or 'remove' stuff! 'look at' stuff!"
+              , "'turn on' stuff! 'turn off' stuff!"
               , "'put X in Y' or 'combine X with Y' if you think that's a good idea"
-              , "'eat' stuff! 'wear' stuff! 'look at' stuff!"
-              , "'turn on' stuff!"
               , "'get thing' and 'drop thing', and 'i' or 'inventory' to see what you've got" ]
 
 enactInstruction (Get target) = do
@@ -759,6 +769,16 @@ enactInstruction (Wear target) = do
         Unwearable ->
           liftIO $ TIO.putStrLn $ e^.?name <> " cannot be worn"
 
+enactInstruction (Remove target) = do
+  es <- filterByTarget target <$> getPlayerWornEntities
+  case es of
+    [] -> liftIO $ TIO.putStrLn $ "Not wearing " <> target
+    es -> do
+      let e = head es
+      liftIO $ TIO.putStrLn $ "You remove the " <> (e^.?name)
+      modifyPlayer (over wearing (fmap (S.delete $ e^.?entityID)))
+      modifyPlayer (over inventory (fmap (S.insert $ e^.?entityID)))
+
 enactInstruction (LookAt target) = do
   es <- allValidTargetedEntities target
   case es of
@@ -796,7 +816,7 @@ enactInstruction Wait = do
 enactInstruction (TurnOn target) = do
   es <- allValidTargetedEntities target
   case es of
-    [] -> liftIO $ TIO.putStrLn $ "Don't know what " <> target <> " is"
+    [] -> liftIO $ TIO.putStrLn $ "Can't find " <> target
     es -> do
       let e = head es
       turnOn (e^.?entityID)
@@ -804,7 +824,7 @@ enactInstruction (TurnOn target) = do
 enactInstruction (TurnOff target) = do
   es <- allValidTargetedEntities target
   case es of
-    [] -> liftIO $ TIO.putStrLn $ "Don't know what " <> target <> " is"
+    [] -> liftIO $ TIO.putStrLn $ "Can't find " <> target <> " is"
     es -> do
       let e = head es
       turnOff (e^.?entityID)
@@ -812,7 +832,7 @@ enactInstruction (TurnOff target) = do
 enactInstruction (Eat target) = do
   es <- allValidTargetedEntities target
   case es of
-    [] -> liftIO $ TIO.putStrLn $ "Don't know what " <> target <> " is"
+    [] -> liftIO $ TIO.putStrLn $ "Can't find " <> target <> " is"
     es -> do
       let e = head es
       case e^.edible of
@@ -950,5 +970,6 @@ makeBand plate band = do
   removeEntity (plate^.?entityID)
   removeEntity (band^.?entityID)
   mask <- mkSimpleObj "makeshift facemask" ["facemask", "mask"] Nothing
+  modifyEntity (set wearable Wearable) (mask^.?entityID)
   desc mask (const $ return "A super-safe, military grade, virus-repellant face mask.")
   modifyPlayer (over inventory (fmap (S.insert $ mask^.?entityID)))
