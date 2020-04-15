@@ -746,6 +746,7 @@ enactInstruction Help =
   $ T.unlines [ "You can 'go north', 'north' or just 'n'."
               , "If nothing is happening, just 'wait'"
               , "'eat' stuff! 'wear' or 'remove' stuff! 'look at' stuff!"
+              , "'talk to' the people you meet!"
               , "'turn on' stuff! 'turn off' stuff!"
               , "'put X in Y' or 'combine X with Y' if you think that's a good idea"
               , "'get thing' and 'drop thing', and 'i' or 'inventory' to see what you've got"
