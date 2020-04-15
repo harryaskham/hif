@@ -173,7 +173,7 @@ runWatchers = do
 
 addAchievement :: (MonadState GameState m, MonadIO m) => Achievement -> m ()
 addAchievement a@(Achievement aID aContent) = do
-  liftIO $ TIO.putStrLn $ "ACHIEVEMENT UNLOCKED:\n" <> aID <> "\n" <> aContent
+  liftIO $ TIO.putStrLn $ "\nACHIEVEMENT UNLOCKED:\n" <> aID <> "\n" <> aContent
   modify (\s -> s & achievements %~ M.insert aID a)
 
 hasAchievement :: (MonadState GameState m) => AchievementID -> m Bool
@@ -216,6 +216,7 @@ data Instruction = Go Direction
                  | Help
                  | Undo
                  | OpenI Target
+                 | Say Text
                  deriving (Eq)
 
 getAllEntities :: (MonadState GameState m) => EntityType -> m [Entity]
@@ -586,6 +587,13 @@ parseWait = do
   eof
   return Wait
 
+parseSay :: Parser Instruction
+parseSay = do
+  string "say" <|> string "speak"
+  spaces
+  content <- many1 anyChar
+  return $ Say (T.pack content)
+
 parseEat :: Parser Instruction
 parseEat = do
   string "eat"
@@ -678,6 +686,7 @@ instructionParser =
   <|> try parseRemove
   <|> try parseUndo
   <|> try parseOpen
+  <|> try parseSay
 
 -- Parse out the instruction from the given text string
 parseInstruction :: Text -> Maybe Instruction
@@ -739,6 +748,21 @@ enactInstruction (Go dir) = do
       modifyPlayer (set locationID (Just lID))
       incrementClock
     Nothing -> liftIO $ TIO.putStrLn $ "Cannot travel " <> showt dir <> "."
+
+enactInstruction (Say content) = do
+  liftIO $ TIO.putStrLn $ "You speak aloud: '" <> content <> "'"
+  l <- getPlayerLocation
+  when ( (l^.?name) == "bedroom" && T.isInfixOf "HOME" (T.toUpper content) && T.isInfixOf "NHS" (T.toUpper content) && T.isInfixOf "DEATH" (T.toUpper content) ) $ do
+    addAchievement $ Achievement "Simon Says" "Do you do everything you hear on the radio?"
+    setGameOver
+    ap <- mkLocation "Astral Plane"
+    desc ap (const $ return
+      $ "As you recite the mantra on the radio, you lose touch with your corporeal body.\n"
+      <> "You feel yourself becoming one with the simulacrum as you continue your chant.\n"
+      <> "Hours pass - then days - and your lips chap with thirst. Still you chant.\n"
+      <> "Your body expires, but your immortal soul lives may yet live on in the Hancock Machine.")
+    modifyPlayer (set locationID $ Just $ ap^.?entityID)
+
 
 enactInstruction Help =
   liftIO
