@@ -173,7 +173,7 @@ runWatchers = do
 
 addAchievement :: (MonadState GameState m, MonadIO m) => Achievement -> m ()
 addAchievement a@(Achievement aID aContent) = do
-  liftIO $ TIO.putStrLn $ "\nACHIEVEMENT UNLOCKED:\n" <> aID <> "\n" <> aContent
+  liftIO $ TIO.putStrLn $ "\n***ACHIEVEMENT UNLOCKED***\n" <> aID <> "\n" <> aContent
   modify (\s -> s & achievements %~ M.insert aID a)
 
 hasAchievement :: (MonadState GameState m) => AchievementID -> m Bool
