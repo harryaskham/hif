@@ -138,6 +138,7 @@ data GameState = GameState { _entities :: Map EntityID Entity
                            , _alerts :: Map AlertID Alert
                            -- TODO: Better reconcile this to use 
                            , _watchers :: [GameState -> GameState]
+                           , _history :: [GameState]
                            }
 makeLenses ''GameState
 
@@ -169,6 +170,7 @@ data Direction = DirNorth
                | DirWest
                | DirUp
                | DirDown
+               deriving (Eq)
 
 instance TextShow Direction where
   showb DirNorth = "North"
@@ -193,6 +195,8 @@ data Instruction = Go Direction
                  | Wear Target
                  | Remove Target
                  | Help
+                 | Undo
+                 deriving (Eq)
 
 getAllEntities :: (MonadState GameState m) => EntityType -> m [Entity]
 getAllEntities et = do
@@ -265,6 +269,7 @@ mkGameState = GameState { _entities=M.empty
                         , _clock=0
                         , _alerts=M.empty
                         , _watchers=[]
+                        , _history=[]
                         }
 
 mkSimpleObj :: (MonadState GameState m) => Name -> [Target] -> Maybe EntityID -> m Entity
@@ -478,14 +483,17 @@ describeCurrentTurn = do
   -- TODO: Reinstate clock / things here
   return $ T.intercalate "\n" (catMaybes [header, desc, alerts, thingsHere] ++ directions)
 
+data InstructionError = InstructionError
+
 -- Handle input, potentially running an instruction and modifying game state.
-runInstruction :: (MonadState GameState m, MonadIO m) => Text -> m ()
+runInstruction :: (MonadState GameState m, MonadIO m) => Text -> m (Either InstructionError Instruction)
 runInstruction instructionText =
   case parseInstruction instructionText of
-    (Just i) -> enactInstruction i
+    (Just i) -> do
+      enactInstruction i
+      return $ Right i
     Nothing -> do
-      liftIO $ TIO.putStrLn "Invalid instruction"
-      return ()
+      return $ Left InstructionError
 
 parseGo :: Parser Instruction
 parseGo =
@@ -537,6 +545,12 @@ parseHelp :: Parser Instruction
 parseHelp = do
   anyString ["h", "help", "hint"]
   return Help
+
+parseUndo :: Parser Instruction
+parseUndo = do
+  string "undo"
+  eof
+  return Undo
 
 parseGet :: Parser Instruction
 parseGet = do
@@ -650,6 +664,7 @@ instructionParser =
   <|> try parseCombine
   <|> try parseWear
   <|> try parseRemove
+  <|> try parseUndo
 
 -- Parse out the instruction from the given text string
 parseInstruction :: Text -> Maybe Instruction
@@ -720,7 +735,9 @@ enactInstruction Help =
               , "'eat' stuff! 'wear' or 'remove' stuff! 'look at' stuff!"
               , "'turn on' stuff! 'turn off' stuff!"
               , "'put X in Y' or 'combine X with Y' if you think that's a good idea"
-              , "'get thing' and 'drop thing', and 'i' or 'inventory' to see what you've got" ]
+              , "'get thing' and 'drop thing', and 'i' or 'inventory' to see what you've got"
+              , "Did ya fuck something up? 'undo' to go back a step!"
+              ]
 
 enactInstruction (Get target) = do
   p <- getPlayer
@@ -828,6 +845,14 @@ enactInstruction (TurnOff target) = do
     es -> do
       let e = head es
       turnOff (e^.?entityID)
+
+enactInstruction Undo = do
+  hs <- gets (view history)
+  case hs of
+    [] -> liftIO $ TIO.putStrLn "Can't go back any further"
+    (h:_) -> do
+      liftIO $ TIO.putStrLn "By concentrating really hard, you turn time backwards a tiny amount"
+      put h
 
 enactInstruction (Eat target) = do
   es <- allValidTargetedEntities target

@@ -17,7 +17,6 @@ runApp = do
   buildCovidGame
   loop
   where
-    loop :: App ()
     loop = do
       -- Describe the place
       ct <- describeCurrentTurn
@@ -35,15 +34,23 @@ runApp = do
            liftIO $ TIO.putStrLn "END OF STORY SO FAR"
            _ <- liftIO getLine
            liftIO $ TIO.putStrLn "CIAO"
-         else do
-           -- Get input and run instruction
-           liftIO $ TIO.putStr "> "
-           instruction <- liftIO TIO.getLine
-           runInstruction instruction
+         else instructionLoop
 
-           -- Run any predicates and re-loop
-           runWatchers
-           loop
+    instructionLoop = do
+      -- Get input and run instruction. Store the old state for UNDO purposes.
+      prevState <- get
+      liftIO $ TIO.putStr "> "
+      instruction <- liftIO TIO.getLine
+      outcome <- runInstruction instruction
+      case outcome of
+        Left InstructionError -> do
+          liftIO $ TIO.putStrLn "Invalid instruction"
+          instructionLoop
+        Right i -> do
+          -- Run any predicates, store historical state, and re-loop
+          runWatchers
+          unless (i == Undo) $ modify $ over history (prevState:)
+          loop
 
 main :: IO ()
 main = do
