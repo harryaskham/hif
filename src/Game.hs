@@ -214,6 +214,7 @@ data Instruction = Go Direction
                  | Remove Target
                  | Help
                  | Undo
+                 | OpenI Target
                  deriving (Eq)
 
 getAllEntities :: (MonadState GameState m) => EntityType -> m [Entity]
@@ -566,6 +567,14 @@ parseDrop = do
   eof
   return $ Drop (T.pack target)
 
+parseOpen :: Parser Instruction
+parseOpen = do
+  string "open"
+  spaces
+  target <- many1 anyChar
+  eof
+  return $ OpenI (T.pack target)
+
 parseWait :: Parser Instruction
 parseWait = do
   string "wait" <|> string "do nothing"
@@ -663,6 +672,7 @@ instructionParser =
   <|> try parseWear
   <|> try parseRemove
   <|> try parseUndo
+  <|> try parseOpen
 
 -- Parse out the instruction from the given text string
 parseInstruction :: Text -> Maybe Instruction
@@ -768,6 +778,22 @@ enactInstruction (Drop target) = do
            liftIO $ TIO.putStrLn $ "You drop the " <> target
         Undroppable ->
           liftIO $ TIO.putStrLn $ e^.?name <> " cannot be dropped"
+
+enactInstruction (OpenI target) = do
+  l <- getPlayerLocation
+  es <- allValidTargetedEntities target
+  case es of
+    [] -> liftIO $ TIO.putStrLn $ "No " <> target <> " to open."
+    es -> do
+      let e = head es
+      case e^.?name of
+        "front door" ->
+          liftIO $ TIO.putStrLn "This hasn't been opened in years. Government mandate. You wouldn't want that air coming in, anyhow..."
+        "hatch" ->
+          case e^.?openClosed of
+            Open -> liftIO $ TIO.putStrLn "The hatch is already open"
+            Closed -> liftIO $ TIO.putStrLn "This can only be opened from the outside for deliveries."
+        n -> liftIO $ TIO.putStrLn $ n <> " cannot be opened"
 
 enactInstruction (Wear target) = do
   es <- allValidTargetedEntities target
