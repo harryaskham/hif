@@ -20,7 +20,7 @@ runApp = do
     loop = do
       -- Describe the place
       ct <- describeCurrentTurn
-      liftIO $ TIO.putStrLn ct
+      logT ct
 
       -- Mark this place as visited
       p <- getPlayer
@@ -30,9 +30,9 @@ runApp = do
       isOver <- gets (view gameOver)
       if isOver
          then do
-           liftIO $ TIO.putStrLn "END OF STORY SO FAR"
+           logT "END OF STORY SO FAR"
            _ <- liftIO getLine
-           liftIO $ TIO.putStrLn "CIAO"
+           logT "CIAO"
          else instructionLoop
 
     instructionLoop = do
@@ -43,7 +43,7 @@ runApp = do
       outcome <- runInstruction instruction
       case outcome of
         Left InstructionError -> do
-          liftIO $ TIO.putStrLn "Invalid instruction"
+          logT "Invalid instruction"
           instructionLoop
         Right i -> do
           -- Run any predicates, store historical state, and re-loop

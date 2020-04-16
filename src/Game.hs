@@ -27,8 +27,8 @@ import Data.Char (isLetter, isDigit)
 (^.?) :: Show s => s -> Getting (Maybe a) s (Maybe a) -> a
 a ^.? b = fromMaybe (error $ "Unsafe entity attribute access" ++ show a) (a ^. b)
 
-log :: (MonadIO m) => Text -> m ()
-log = liftIO . TIO.putStrLn
+logT :: (MonadIO m) => Text -> m ()
+logT = liftIO . TIO.putStrLn
 
 data EntityType = Player
                 | Human
@@ -176,7 +176,7 @@ runWatchers = do
 
 addAchievement :: (MonadState GameState m, MonadIO m) => Achievement -> m ()
 addAchievement a@(Achievement aID aContent) = do
-  liftIO $ TIO.putStrLn $ "\n***ACHIEVEMENT UNLOCKED***\n" <> aID <> "\n" <> aContent
+  logT $ "\n***ACHIEVEMENT UNLOCKED***\n" <> aID <> "\n" <> aContent
   modify (\s -> s & achievements %~ M.insert aID a)
 
 hasAchievement :: (MonadState GameState m) => AchievementID -> m Bool
@@ -750,10 +750,10 @@ enactInstruction (Go dir) = do
     Just lID -> do
       modifyPlayer (set locationID (Just lID))
       incrementClock
-    Nothing -> liftIO $ TIO.putStrLn $ "Cannot travel " <> showt dir <> "."
+    Nothing -> logT $ "Cannot travel " <> showt dir <> "."
 
 enactInstruction (Say content) = do
-  liftIO $ TIO.putStrLn $ "You speak aloud: '" <> content <> "'"
+  logT $ "You speak aloud: '" <> content <> "'"
   l <- getPlayerLocation
   when ( (l^.?name) == "bedroom" && T.isInfixOf "HOME" (T.toUpper content) && T.isInfixOf "NHS" (T.toUpper content) && T.isInfixOf "DEATH" (T.toUpper content) ) $ do
     addAchievement $ Achievement "Simon Says" "Do you do everything you hear on the radio?"
@@ -786,7 +786,7 @@ enactInstruction (Get target) = do
   p <- getPlayer
   es <- getTargetedEntitiesNearPlayer target
   case es of
-    [] -> liftIO $ TIO.putStrLn $ "No " <> target <> " to get."
+    [] -> logT $ "No " <> target <> " to get."
     es -> do
       let e = head es
       if isJust (e^.locationID) && e^.storable == Storable
@@ -794,15 +794,15 @@ enactInstruction (Get target) = do
            modifyEntity (set locationID Nothing) (e^.?entityID)
            modifyPlayer (over inventory (fmap (S.insert $ e^.?entityID)))
            incrementClock
-           liftIO $ TIO.putStrLn $ "You get the " <> target
+           logT $ "You get the " <> target
          else
-           liftIO $ TIO.putStrLn $ "Cannot get " <> (e^.?name)
+           logT $ "Cannot get " <> (e^.?name)
 
 enactInstruction (Drop target) = do
   l <- getPlayerLocation
   es <- filterInventoryByTarget target
   case es of
-    [] -> liftIO $ TIO.putStrLn $ "No " <> target <> " to drop."
+    [] -> logT $ "No " <> target <> " to drop."
     es -> do
       let e = head es
       case e^.droppable of
@@ -810,65 +810,65 @@ enactInstruction (Drop target) = do
            modifyEntity (set locationID (l^.entityID)) (e^.?entityID)
            modifyPlayer (over inventory (fmap (S.delete $ e^.?entityID)))
            incrementClock
-           liftIO $ TIO.putStrLn $ "You drop the " <> target
+           logT $ "You drop the " <> target
         Undroppable ->
-          liftIO $ TIO.putStrLn $ e^.?name <> " cannot be dropped"
+          logT $ e^.?name <> " cannot be dropped"
 
 enactInstruction (OpenI target) = do
   l <- getPlayerLocation
   es <- allValidTargetedEntities target
   case es of
-    [] -> liftIO $ TIO.putStrLn $ "No " <> target <> " to open."
+    [] -> logT $ "No " <> target <> " to open."
     es -> do
       let e = head es
       case e^.?name of
         "front door" ->
-          liftIO $ TIO.putStrLn "This hasn't been opened in years. Government mandate. You wouldn't want that air coming in, anyhow.\nYour voice would carry through it."
+          logT "This hasn't been opened in years. Government mandate. You wouldn't want that air coming in, anyhow.\nYour voice would carry through it."
         "hatch" ->
           case e^.?openClosed of
-            Open -> liftIO $ TIO.putStrLn "The hatch is already open"
-            Closed -> liftIO $ TIO.putStrLn "This can only be opened from the outside for deliveries."
-        n -> liftIO $ TIO.putStrLn $ n <> " cannot be opened"
+            Open -> logT "The hatch is already open"
+            Closed -> logT "This can only be opened from the outside for deliveries."
+        n -> logT $ n <> " cannot be opened"
 
 enactInstruction (Wear target) = do
   es <- allValidTargetedEntities target
   case es of
-    [] -> liftIO $ TIO.putStrLn $ "Don't know " <> target
+    [] -> logT $ "Don't know " <> target
     es -> do
       let e = head es
       case e^.wearable of
         Wearable -> do
-          liftIO $ TIO.putStrLn $ "You start wearing the " <> (e^.?name)
+          logT $ "You start wearing the " <> (e^.?name)
           modifyPlayer (over wearing (fmap (S.insert $ e^.?entityID)))
           modifyPlayer (over inventory (fmap (S.delete $ e^.?entityID)))
           modifyEntity (set locationID Nothing) (e^.?entityID)
         Unwearable ->
-          liftIO $ TIO.putStrLn $ e^.?name <> " cannot be worn"
+          logT $ e^.?name <> " cannot be worn"
 
 enactInstruction (Remove target) = do
   es <- filterByTarget target <$> getPlayerWornEntities
   case es of
-    [] -> liftIO $ TIO.putStrLn $ "Not wearing " <> target
+    [] -> logT $ "Not wearing " <> target
     es -> do
       let e = head es
-      liftIO $ TIO.putStrLn $ "You remove the " <> (e^.?name)
+      logT $ "You remove the " <> (e^.?name)
       modifyPlayer (over wearing (fmap (S.delete $ e^.?entityID)))
       modifyPlayer (over inventory (fmap (S.insert $ e^.?entityID)))
 
 enactInstruction (LookAt target) = do
   es <- allValidTargetedEntities target
   case es of
-    [] -> liftIO $ TIO.putStrLn $ "Can't see " <> target
+    [] -> logT $ "Can't see " <> target
     es -> do
       let e = head es
       d <- getDescription (e^.?entityID)
-      liftIO $ TIO.putStrLn d
+      logT d
       -- Report on anything the thing contains
       containedEs <- getEntitiesAt (e^.?entityID)
       unless (null containedEs)
-        $ liftIO $ TIO.putStrLn $ "Inside is: " <> T.intercalate ", " ((^.?name) <$> containedEs)
+        $ logT $ "Inside is: " <> T.intercalate ", " ((^.?name) <$> containedEs)
 
-enactInstruction Look = liftIO $ TIO.putStrLn "You look around... some more?"
+enactInstruction Look = logT "You look around... some more?"
 
 enactInstruction Inventory = do
   p <- getPlayer
@@ -882,17 +882,17 @@ enactInstruction Inventory = do
                _ -> do
                  es <- getPlayerWornEntities
                  return $ "You are wearing: " <> T.intercalate ", " ((^.?name) <$> es)
-  liftIO $ TIO.putStrLn $ invMsg <> "\n" <> wearMsg
+  logT $ invMsg <> "\n" <> wearMsg
 
 
 enactInstruction Wait = do
   incrementClock
-  liftIO $ TIO.putStrLn "You wait idly."
+  logT "You wait idly."
 
 enactInstruction (TurnOn target) = do
   es <- allValidTargetedEntities target
   case es of
-    [] -> liftIO $ TIO.putStrLn $ "Can't find " <> target
+    [] -> logT $ "Can't find " <> target
     es -> do
       let e = head es
       turnOn (e^.?entityID)
@@ -900,7 +900,7 @@ enactInstruction (TurnOn target) = do
 enactInstruction (TurnOff target) = do
   es <- allValidTargetedEntities target
   case es of
-    [] -> liftIO $ TIO.putStrLn $ "Can't find " <> target <> " is"
+    [] -> logT $ "Can't find " <> target <> " is"
     es -> do
       let e = head es
       turnOff (e^.?entityID)
@@ -908,32 +908,32 @@ enactInstruction (TurnOff target) = do
 enactInstruction Undo = do
   hs <- gets (view history)
   case hs of
-    [] -> liftIO $ TIO.putStrLn "Can't go back any further"
+    [] -> logT "Can't go back any further"
     (h:_) -> do
-      liftIO $ TIO.putStrLn "By concentrating really hard, you turn time backwards a tiny amount"
+      logT "By concentrating really hard, you turn time backwards a tiny amount"
       put h
 
 enactInstruction (Eat target) = do
   es <- allValidTargetedEntities target
   case es of
-    [] -> liftIO $ TIO.putStrLn $ "Can't find " <> target <> " is"
+    [] -> logT $ "Can't find " <> target <> " is"
     es -> do
       let e = head es
       case e^.edible of
         Edible -> do
           p <- getPlayer
-          liftIO $ TIO.putStrLn $ "You... you eat the " <> e^.?name
+          logT $ "You... you eat the " <> e^.?name
           modifyPlayer (over inventory (fmap (S.delete $ e^.?entityID)))
           removeEntity $ e^.?entityID
           incrementClock
-        Inedible -> liftIO $ TIO.putStrLn $ "You try hard, but the " <> (e^.?name) <> " is inedible."
+        Inedible -> logT $ "You try hard, but the " <> (e^.?name) <> " is inedible."
 
 enactInstruction (Combine t1 t2) = do
   es1 <- allValidTargetedEntities t1
   es2 <- allValidTargetedEntities t2
   if null es1
-     then liftIO $ TIO.putStrLn $ "Don't know what " <> t1 <> " is"
-     else if null es2 then liftIO $ TIO.putStrLn $ "Don't know what " <> t2 <> " is"
+     then logT $ "Don't know what " <> t1 <> " is"
+     else if null es2 then logT $ "Don't know what " <> t2 <> " is"
      else let e1 = head es1
               e2 = head es2
            in combine (e1^.?entityID) (e2^.?entityID)
@@ -941,7 +941,7 @@ enactInstruction (Combine t1 t2) = do
 enactInstruction (TalkTo target) = do
   es <- allValidTargetedEntities target
   case es of
-    [] -> liftIO $ TIO.putStrLn $ "Don't know what " <> target <> " is"
+    [] -> logT $ "Don't know what " <> target <> " is"
     es -> do
       let e = head es
       talkTo (e^.?entityID)
@@ -954,9 +954,9 @@ talkTo eID = do
   case e^.?name of
     "delivery man" -> do
       incrementClock
-      liftIO $ TIO.putStrLn "\"Fuckin' finally man! What took you? I gotta make hundreds more of these today to get mine!\""
-      liftIO $ TIO.putStrLn "The delivery guy swipes a card, throwing open the hatch, slides a ration box through, and leaves hurriedly."
-      liftIO $ TIO.putStrLn "The box tips over, spilling some of its contents."
+      logT "\"Fuckin' finally man! What took you? I gotta make hundreds more of these today to get mine!\""
+      logT "The delivery guy swipes a card, throwing open the hatch, slides a ration box through, and leaves hurriedly."
+      logT "The box tips over, spilling some of its contents."
       -- The guy leaves, the hatch opens
       removeAlert "Delivery"
       removeEntity $ e^.?entityID
@@ -992,54 +992,54 @@ talkTo eID = do
       modifyEntity (set storable Storable) (rations^.?entityID)
       modifyEntity (set edible Edible) (rations^.?entityID)
 
-    _ -> liftIO $ TIO.putStrLn $ "Can't talk to " <> e^.?name
+    _ -> logT $ "Can't talk to " <> e^.?name
 
 turnOn :: (MonadState GameState m, MonadIO m) => EntityID -> m ()
 turnOn eID = do
   e <- getEntity eID
   if isNothing (e^.onOff)
-     then liftIO $ TIO.putStrLn "Can't turn that on"
+     then logT "Can't turn that on"
      else case entityType e of
-       Alarm -> liftIO $ TIO.putStrLn "You can't turn an alarm on at will, man. Time only goes one way."
+       Alarm -> logT "You can't turn an alarm on at will, man. Time only goes one way."
        Radio -> case e^.?onOff of
                   Off -> do
-                    liftIO $ TIO.putStrLn "You twist the dial until the bad news starts to roll once more."
+                    logT "You twist the dial until the bad news starts to roll once more."
                     modifyEntity (set onOff $ Just On) (e^.?entityID)
                     incrementClock
-                  On -> liftIO $ TIO.putStrLn "Already chirping away, friend."
+                  On -> logT "Already chirping away, friend."
        SimpleObj -> case e^.?name of
                       "bath" -> do
-                        liftIO $ TIO.putStrLn "You turn the rusty taps, and water floods the rotten tub. It quickly reaches the overflow."
+                        logT "You turn the rusty taps, and water floods the rotten tub. It quickly reaches the overflow."
                         modifyEntity (set onOff $ Just On) (e^.?entityID)
                         incrementClock
-                      n -> liftIO $ TIO.putStrLn $ "Can't turn on " <> n
-       _ -> liftIO $ TIO.putStrLn "Nothing happens"
+                      n -> logT $ "Can't turn on " <> n
+       _ -> logT "Nothing happens"
 
 turnOff :: (MonadState GameState m, MonadIO m) => EntityID -> m ()
 turnOff eID = do
   e <- getEntity eID
   if isNothing (e^.onOff)
-     then liftIO $ TIO.putStrLn "Can't turn that off"
+     then logT "Can't turn that off"
      else case entityType e of
        Alarm -> case e^.?onOff of
-                  Off -> liftIO $ TIO.putStrLn "You already took care of that, chap."
+                  Off -> logT "You already took care of that, chap."
                   On -> do
-                    liftIO $ TIO.putStrLn "You slam a calloused hand onto the rusty metal bells, and the alarm is silenced."
+                    logT "You slam a calloused hand onto the rusty metal bells, and the alarm is silenced."
                     modifyEntity (set onOff $ Just Off) (e^.?entityID)
                     incrementClock
        Radio -> case e^.?onOff of
-                  Off -> liftIO $ TIO.putStrLn "The radio is already off."
+                  Off -> logT "The radio is already off."
                   On -> do
-                    liftIO $ TIO.putStrLn "There's no off switch, but you dial your way to the most quiet static you can find."
+                    logT "There's no off switch, but you dial your way to the most quiet static you can find."
                     modifyEntity (set onOff $ Just Off) (e^.?entityID)
                     incrementClock
        SimpleObj -> case e^.?name of
                       "bath" -> do
-                        liftIO $ TIO.putStrLn "You turn off the taps and the water quickly drains through the open plug."
+                        logT "You turn off the taps and the water quickly drains through the open plug."
                         modifyEntity (set onOff $ Just Off) (e^.?entityID)
                         incrementClock
-                      n -> liftIO $ TIO.putStrLn $ "Can't turn off " <> n
-       _ -> liftIO $ TIO.putStrLn "Nothing happens"
+                      n -> logT $ "Can't turn off " <> n
+       _ -> logT "Nothing happens"
 
 combine :: (MonadState GameState m, MonadIO m) => EntityID -> EntityID -> m ()
 combine eID1 eID2 = do
@@ -1049,22 +1049,22 @@ combine eID1 eID2 = do
     ("plunger", "hatch") -> do
       let (plunger, hatch) = (e1, e2)
       if hatch^.?openClosed == Closed
-         then liftIO $ TIO.putStrLn "The hatch is closed."
+         then logT "The hatch is closed."
          else do
-           liftIO $ TIO.putStrLn "You use the filthy plunger to prop open the delivery hatch."
+           logT "You use the filthy plunger to prop open the delivery hatch."
            modifyEntity (set locationID $ Just (hatch^.?entityID)) (plunger^.?entityID)
            modifyPlayer (over inventory (fmap (S.delete $ plunger^.?entityID)))
     ("paper plate", "an elasticated hairband") -> makeBand e1 e2
     ("an elasticated hairband", "paper plate") -> makeBand e2 e1
     ("alarm clock", "bath") -> do
-      liftIO $ TIO.putStrLn "You place the alarm clock into the bath, like a normal person would."
+      logT "You place the alarm clock into the bath, like a normal person would."
       modifyPlayer (over inventory (fmap (S.delete $ e1^.?entityID)))
       modifyEntity (set locationID $ Just (e2^.?entityID)) (e1^.?entityID)
-    _ -> liftIO $ TIO.putStrLn $ "Can't combine " <> (e1^.?name) <> " and " <> (e2^.?name)
+    _ -> logT $ "Can't combine " <> (e1^.?name) <> " and " <> (e2^.?name)
 
 -- Make the makeshift facemask
 makeBand plate band = do
-  liftIO $ TIO.putStrLn "Using your medical expertise and surgical dexterity, you fashion a fucking facemask out of these two unlikely items."
+  logT "Using your medical expertise and surgical dexterity, you fashion a fucking facemask out of these two unlikely items."
   modifyPlayer (over inventory (fmap (S.delete $ plate^.?entityID)))
   modifyPlayer (over inventory (fmap (S.delete $ band^.?entityID)))
   removeEntity (plate^.?entityID)
