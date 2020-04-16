@@ -5,11 +5,9 @@
 - whether on/off in inventory display
 - break things - with a broken status
 - synechdoche stuff - look under lid, for example
-
 - repeat the mantra on the radio for special ending
 - queries - what is X
-- more verbs
-- Endgame triggers
+- more verbs, even if non functional
 
 
 CLEANUP
@@ -23,3 +21,4 @@ Remove specificity of things
 - inventory management as helper func
 - TIO printing helper func
 - TurnOn/Off etc handlers attached to the things themselves
+- Split engine and game into separate files

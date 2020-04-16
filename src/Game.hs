@@ -27,6 +27,9 @@ import Data.Char (isLetter, isDigit)
 (^.?) :: Show s => s -> Getting (Maybe a) s (Maybe a) -> a
 a ^.? b = fromMaybe (error $ "Unsafe entity attribute access" ++ show a) (a ^. b)
 
+log :: (MonadIO m) => Text -> m ()
+log = liftIO . TIO.putStrLn
+
 data EntityType = Player
                 | Human
                 | Location
