@@ -760,7 +760,7 @@ enactInstruction (Say content) = do
       $ "As you recite the mantra on the radio, you lose touch with your corporeal body.\n"
       <> "You feel yourself becoming one with the simulacrum as you continue your chant.\n"
       <> "Hours pass - then days - and your lips chap with thirst. Still you chant.\n"
-      <> "Your body expires, but your immortal soul lives may yet live on in the Hancock Machine.")
+      <> "Your body expires, but your immortal soul may yet live on in the Hancock Machine.")
     modifyPlayer (set locationID $ Just $ ap^.?entityID)
 
   deliveryMan <- getEntityByName Human "delivery man"
@@ -820,7 +820,7 @@ enactInstruction (OpenI target) = do
       let e = head es
       case e^.?name of
         "front door" ->
-          liftIO $ TIO.putStrLn "This hasn't been opened in years. Government mandate. You wouldn't want that air coming in, anyhow..."
+          liftIO $ TIO.putStrLn "This hasn't been opened in years. Government mandate. You wouldn't want that air coming in, anyhow.\nYour voice would carry through it."
         "hatch" ->
           case e^.?openClosed of
             Open -> liftIO $ TIO.putStrLn "The hatch is already open"
