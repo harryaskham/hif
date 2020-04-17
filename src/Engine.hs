@@ -161,8 +161,27 @@ data GameState =
     }
 makeLenses ''GameState
 
+mkGameState :: GameState
+mkGameState = GameState { _entities=M.empty
+                        , _descriptions=M.empty
+                        , _clock=0
+                        , _alerts=M.empty
+                        , _watchers=[]
+                        , _history=[]
+                        , _achievements=M.empty
+                        , _talkToHandlers=M.empty
+                        , _gameOver=False
+                        , _sayHandlers=[]
+                        , _turnOnHandlers=M.empty
+                        , _turnOffHandlers=M.empty
+                        , _combinationHandlers=M.empty
+                        , _eatHandlers=M.empty
+                        , _openHandlers=M.empty
+                        }
+
 type App = Stack GameState
 
+-- Output text to the screen within the Monad stack
 logT :: Text -> App ()
 logT = liftIO . TIO.putStrLn
 
@@ -211,42 +230,6 @@ runWatchers = do
       go (w:ws) = do
         _ <- w
         go ws
-
-data Direction = DirNorth
-               | DirEast
-               | DirSouth
-               | DirWest
-               | DirUp
-               | DirDown
-               deriving (Eq)
-
-instance TextShow Direction where
-  showb DirNorth = "North"
-  showb DirEast = "East"
-  showb DirSouth = "South"
-  showb DirWest = "West"
-  showb DirUp = "upwards"
-  showb DirDown = "downwards"
-
-data Instruction = Go Direction
-                 | Wait
-                 | Get Target
-                 | Drop Target
-                 | Eat Target
-                 | TalkTo Target 
-                 | Look
-                 | LookAt Target
-                 | Inventory
-                 | TurnOn Target
-                 | TurnOff Target
-                 | Combine Target Target
-                 | Wear Target
-                 | Remove Target
-                 | Help
-                 | Undo
-                 | OpenI Target
-                 | Say Text
-                 deriving (Eq)
 
 getAllEntities :: EntityType -> App [Entity]
 getAllEntities et = do
@@ -307,8 +290,50 @@ getEntitiesAt lID = do
 removeEntity :: EntityID -> App ()
 removeEntity eID = modify $ \s -> s & entities %~ M.delete eID
 
-setGameOver :: App ()
-setGameOver = modify $ set gameOver True
+-- Get all entities at the player's location, including contained things.
+getEntitiesNearPlayer :: App [Entity]
+getEntitiesNearPlayer = do
+  p <- getPlayer
+  getEntitiesAt (p^.?locationID)
+
+filterByTarget :: Target -> [Entity] -> [Entity]
+filterByTarget t = filter (\e -> t `S.member` (e^.?targets))
+
+-- All non-held items near the player
+getTargetedEntitiesNearPlayer :: Target -> App [Entity]
+getTargetedEntitiesNearPlayer t = filterByTarget t <$> getEntitiesNearPlayer
+
+-- All items either near player or in inventory matching the given target
+allValidTargetedEntities :: Target -> App [Entity]
+allValidTargetedEntities t = do
+  es1 <- getTargetedEntitiesNearPlayer t
+  es2 <- filterInventoryByTarget t
+  return $ es1 ++ es2
+
+-- Gets a single arbitrary match to the given target.
+-- Nothing if it doesn't match or can't be found.
+oneValidTargetedEntity :: Target -> App (Maybe Entity)
+oneValidTargetedEntity t = do
+  es <- allValidTargetedEntities t
+  return $ SL.head es
+
+getInventoryEntities :: App [Entity]
+getInventoryEntities = do
+  p <- getPlayer
+  traverse getEntity (S.toList $ p^.?inventory)
+
+inPlayerInventory :: EntityID -> App Bool
+inPlayerInventory eID = do
+  p <- getPlayer
+  return $ eID `S.member` (p^.?inventory)
+
+getPlayerWornEntities :: App [Entity]
+getPlayerWornEntities = do
+  p <- getPlayer
+  traverse getEntity (S.toList $ p^.?wearing)
+
+filterInventoryByTarget :: Target -> App [Entity]
+filterInventoryByTarget t = filterByTarget t <$> getInventoryEntities
 
 -- Non-thread-safe way to get a new entity ID.
 newID :: EntityType -> App EntityID
@@ -316,24 +341,27 @@ newID et = do
   es <- getAllEntities et
   return $ EntityID et (fromIntegral (length es) + 1)
 
--- Now we can finally back-ref to the aliases to make concrete our instance.
-mkGameState :: GameState
-mkGameState = GameState { _entities=M.empty
-                        , _descriptions=M.empty
-                        , _clock=0
-                        , _alerts=M.empty
-                        , _watchers=[]
-                        , _history=[]
-                        , _achievements=M.empty
-                        , _talkToHandlers=M.empty
-                        , _gameOver=False
-                        , _sayHandlers=[]
-                        , _turnOnHandlers=M.empty
-                        , _turnOffHandlers=M.empty
-                        , _combinationHandlers=M.empty
-                        , _eatHandlers=M.empty
-                        , _openHandlers=M.empty
-                        }
+-- Write an entity back to the register.
+registerEntity :: Entity -> App ()
+registerEntity e = do
+  es <- gets (view entities)
+  modify $ \s -> s & entities %~ M.insert (e^.?entityID) e
+
+-- Modify the given entity persisted in the state.
+modifyEntity :: (Entity -> Entity) -> EntityID -> App ()
+modifyEntity f eID = do
+  es <- gets (view entities)
+  case M.lookup eID es of
+    Just e -> modify $ \s -> s & entities %~ M.insert eID (f e)
+    Nothing -> return ()
+
+-- Register the given description function with the entity
+addDesc :: EntityID -> Description -> App ()
+addDesc eID d = modify $ \s -> s & descriptions %~ M.insert eID d
+
+-- Quick helper to avoid ID usage
+desc :: Entity -> Description -> App ()
+desc e = addDesc (e^.?entityID)
 
 mkSimpleObj :: Name -> [Target] -> Maybe EntityID -> App Entity
 mkSimpleObj name targets locationID = do
@@ -379,27 +407,6 @@ mkLocation name = do
                      }
   registerEntity location
   return location
-
--- Write an entity back to the register.
-registerEntity :: Entity -> App ()
-registerEntity e = do
-  es <- gets (view entities)
-  modify $ \s -> s & entities %~ M.insert (e^.?entityID) e
-
--- Modify the given entity persisted in the state.
-modifyEntity :: (Entity -> Entity) -> EntityID -> App ()
-modifyEntity f eID = do
-  es <- gets (view entities)
-  case M.lookup eID es of
-    Just e -> modify $ \s -> s & entities %~ M.insert eID (f e)
-    Nothing -> return ()
-
--- Register the given description function with the entity
-addDesc :: EntityID -> (EntityID -> App Text) -> App ()
-addDesc eID d = modify $ \s -> s & descriptions %~ M.insert eID d
-
--- Quick helper
-desc e = addDesc (e^.?entityID)
 
 -- Adds a given alert.
 addAlert :: AlertID -> Alert -> App ()
@@ -467,6 +474,42 @@ describeCurrentTurn = do
       ]
 
   return $ T.intercalate "\n" (catMaybes [header, desc, alerts, thingsHere] ++ directions)
+
+data Direction = DirNorth
+               | DirEast
+               | DirSouth
+               | DirWest
+               | DirUp
+               | DirDown
+               deriving (Eq)
+
+instance TextShow Direction where
+  showb DirNorth = "North"
+  showb DirEast = "East"
+  showb DirSouth = "South"
+  showb DirWest = "West"
+  showb DirUp = "upwards"
+  showb DirDown = "downwards"
+
+data Instruction = Go Direction
+                 | Wait
+                 | Get Target
+                 | Drop Target
+                 | Eat Target
+                 | TalkTo Target 
+                 | Look
+                 | LookAt Target
+                 | Inventory
+                 | TurnOn Target
+                 | TurnOff Target
+                 | Combine Target Target
+                 | Wear Target
+                 | Remove Target
+                 | Help
+                 | Undo
+                 | OpenI Target
+                 | Say Text
+                 deriving (Eq)
 
 data InstructionError = InstructionError
 
@@ -690,51 +733,6 @@ lensForDir DirDown = toDown
 incrementClock :: MonadState GameState App => App ()
 incrementClock = modify $ over clock (+1)
 
--- Get all entities at the player's location, including contained things.
-getEntitiesNearPlayer :: App [Entity]
-getEntitiesNearPlayer = do
-  p <- getPlayer
-  getEntitiesAt (p^.?locationID)
-
-filterByTarget :: Target -> [Entity] -> [Entity]
-filterByTarget t = filter (\e -> t `S.member` (e^.?targets))
-
--- All non-held items near the player
-getTargetedEntitiesNearPlayer :: Target -> App [Entity]
-getTargetedEntitiesNearPlayer t = filterByTarget t <$> getEntitiesNearPlayer
-
--- All items either near player or in inventory matching the given target
-allValidTargetedEntities :: Target -> App [Entity]
-allValidTargetedEntities t = do
-  es1 <- getTargetedEntitiesNearPlayer t
-  es2 <- filterInventoryByTarget t
-  return $ es1 ++ es2
-
--- Gets a single arbitrary match to the given target.
--- Nothing if it doesn't match or can't be found.
-oneValidTargetedEntity :: Target -> App (Maybe Entity)
-oneValidTargetedEntity t = do
-  es <- allValidTargetedEntities t
-  return $ SL.head es
-
-getInventoryEntities :: App [Entity]
-getInventoryEntities = do
-  p <- getPlayer
-  traverse getEntity (S.toList $ p^.?inventory)
-
-inPlayerInventory :: EntityID -> App Bool
-inPlayerInventory eID = do
-  p <- getPlayer
-  return $ eID `S.member` (p^.?inventory)
-
-getPlayerWornEntities :: App [Entity]
-getPlayerWornEntities = do
-  p <- getPlayer
-  traverse getEntity (S.toList $ p^.?wearing)
-
-filterInventoryByTarget :: Target -> App [Entity]
-filterInventoryByTarget t = filterByTarget t <$> getInventoryEntities
-
 enactInstruction :: Instruction -> App ()
 enactInstruction (Go dir) = do
   l <- getPlayerLocation
@@ -950,3 +948,6 @@ hasAchievement :: AchievementID -> App Bool
 hasAchievement aID = do
   as <- gets (view achievements)
   return $ M.member aID as
+
+setGameOver :: App ()
+setGameOver = modify $ set gameOver True
