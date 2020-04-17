@@ -410,12 +410,13 @@ enactInstruction Inventory = do
                _ -> do
                  es <- getPlayerWornEntities
                  return $ "You are wearing: " <> T.intercalate ", " ((^.?name) <$> es)
-  cheevs <- gets (view remainingAchievements)
-  cheevMessage <- case S.size cheevs of
+  cheevsGot <- (fmap fst . M.toList) <$> gets (view achievements)
+  cheevsLeft <- gets (view remainingAchievements)
+  cheevGotMessage <- return $ "\nAchievements unlocked:\n" <> T.intercalate "\n" (cheevsGot)
+  cheevLeftMessage <- case S.size cheevsLeft of
                     0 -> return "You got all achievements!"
-                    _ -> return $ "\nAchievements still locked:\n" <> T.intercalate "\n" (S.toList cheevs)
-  logT $ T.intercalate "\n" [invMsg, wearMsg, cheevMessage]
-
+                    _ -> return $ "\nAchievements still locked:\n" <> T.intercalate "\n" (S.toList cheevsLeft)
+  logT $ T.intercalate "\n" [invMsg, wearMsg, cheevGotMessage, cheevLeftMessage]
 
 enactInstruction Wait = do
   incrementClock
