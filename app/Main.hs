@@ -3,7 +3,7 @@
 module Main where
 
 import Tools
-import Entity
+import EntityType
 import GameState
 import CovidGame
 import Watcher

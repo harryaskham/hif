@@ -7,8 +7,6 @@
 
 module Watcher where
 
-import Tools
-import Entity
 import GameState
 
 import Control.Lens

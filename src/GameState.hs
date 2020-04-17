@@ -8,7 +8,7 @@
 module GameState where
 
 import Tools
-import Entity
+import EntityType
 
 import Control.Lens
 import Control.Monad.State
@@ -117,6 +117,71 @@ addCombinationHandler eID1 eID2 h = do
   modify $ over combinationHandlers (M.insert (eID1, eID2) h)
   modify $ over combinationHandlers (M.insert (eID2, eID1) (flip h))
 
+-- Non-thread-safe way to get a new entity ID.
+newID :: EntityType -> App EntityID
+newID et = do
+  es <- getAllEntities et
+  return $ EntityID et (fromIntegral (length es) + 1)
+
+-- Write an entity back to the register.
+registerEntity :: Entity -> App ()
+registerEntity e = do
+  es <- gets (view entities)
+  modify $ \s -> s & entities %~ M.insert (e^.?entityID) e
+
+mkSimpleObj :: Name -> [Target] -> Maybe EntityID -> App Entity
+mkSimpleObj name targets locationID = do
+  objID <- newID SimpleObj
+  let obj = def { _entityID=Just objID
+                , _name=Just name
+                , _locationID=locationID
+                , _targets=Just $ S.fromList targets
+                }
+  registerEntity obj
+  return obj
+
+mkPlayer :: Name -> EntityID -> App Entity
+mkPlayer name locationID = do
+  playerID <- newID Player
+  let player = def { _entityID=Just playerID
+                   , _name=Just name
+                   , _locationID=Just locationID
+                   , _inventory=Just S.empty
+                   , _wearing=Just S.empty
+                   , _targets=Just $ S.fromList ["me", "self", "myself", "i", "player", "yourself"]
+                   }
+  registerEntity player
+  return player
+
+mkHuman :: Name -> [Target] -> EntityID -> App Entity
+mkHuman name targets locationID = do
+  humanID <- newID Human
+  let human = def { _entityID=Just humanID
+                  , _name=Just name
+                  , _targets=Just $ S.fromList targets
+                  , _locationID=Just locationID
+                  }
+  registerEntity human
+  return human
+
+mkLocation :: Name -> App Entity
+mkLocation name = do
+  locationID <- newID Location
+  let location = def { _entityID=Just locationID
+                     , _name=Just name
+                     , _visited=Just False
+                     }
+  registerEntity location
+  return location
+
+-- Modify the given entity persisted in the state.
+modifyEntity :: (Entity -> Entity) -> EntityID -> App ()
+modifyEntity f eID = do
+  es <- gets (view entities)
+  case M.lookup eID es of
+    Just e -> modify $ \s -> s & entities %~ M.insert eID (f e)
+    Nothing -> return ()
+
 getAllEntities :: EntityType -> App [Entity]
 getAllEntities et = do
   es <- gets (view entities)
@@ -221,26 +286,6 @@ getPlayerWornEntities = do
 filterInventoryByTarget :: Target -> App [Entity]
 filterInventoryByTarget t = filterByTarget t <$> getInventoryEntities
 
--- Non-thread-safe way to get a new entity ID.
-newID :: EntityType -> App EntityID
-newID et = do
-  es <- getAllEntities et
-  return $ EntityID et (fromIntegral (length es) + 1)
-
--- Write an entity back to the register.
-registerEntity :: Entity -> App ()
-registerEntity e = do
-  es <- gets (view entities)
-  modify $ \s -> s & entities %~ M.insert (e^.?entityID) e
-
--- Modify the given entity persisted in the state.
-modifyEntity :: (Entity -> Entity) -> EntityID -> App ()
-modifyEntity f eID = do
-  es <- gets (view entities)
-  case M.lookup eID es of
-    Just e -> modify $ \s -> s & entities %~ M.insert eID (f e)
-    Nothing -> return ()
-
 -- Register the given description function with the entity
 addDesc :: EntityID -> Description -> App ()
 addDesc eID d = modify $ \s -> s & descriptions %~ M.insert eID d
@@ -248,51 +293,6 @@ addDesc eID d = modify $ \s -> s & descriptions %~ M.insert eID d
 -- Quick helper to avoid ID usage
 desc :: Entity -> Description -> App ()
 desc e = addDesc (e^.?entityID)
-
-mkSimpleObj :: Name -> [Target] -> Maybe EntityID -> App Entity
-mkSimpleObj name targets locationID = do
-  objID <- newID SimpleObj
-  let obj = def { _entityID=Just objID
-                , _name=Just name
-                , _locationID=locationID
-                , _targets=Just $ S.fromList targets
-                }
-  registerEntity obj
-  return obj
-
-mkPlayer :: Name -> EntityID -> App Entity
-mkPlayer name locationID = do
-  playerID <- newID Player
-  let player = def { _entityID=Just playerID
-                   , _name=Just name
-                   , _locationID=Just locationID
-                   , _inventory=Just S.empty
-                   , _wearing=Just S.empty
-                   , _targets=Just $ S.fromList ["me", "self", "myself", "i", "player", "yourself"]
-                   }
-  registerEntity player
-  return player
-
-mkHuman :: Name -> [Target] -> EntityID -> App Entity
-mkHuman name targets locationID = do
-  humanID <- newID Human
-  let human = def { _entityID=Just humanID
-                  , _name=Just name
-                  , _targets=Just $ S.fromList targets
-                  , _locationID=Just locationID
-                  }
-  registerEntity human
-  return human
-
-mkLocation :: Name -> App Entity
-mkLocation name = do
-  locationID <- newID Location
-  let location = def { _entityID=Just locationID
-                     , _name=Just name
-                     , _visited=Just False
-                     }
-  registerEntity location
-  return location
 
 -- Get the single player entity
 getPlayer :: App Entity
