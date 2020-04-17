@@ -46,6 +46,7 @@ data GameState =
     , _alerts :: Map AlertID Alert
     , _watchers :: [Stack GameState ()]
     , _history :: [GameState]
+    , _remainingAchievements :: Set AchievementID
     , _achievements :: Map AchievementID Achievement
     , _gameOver :: Bool
     , _talkToHandlers :: Map EntityID (Stack GameState ())
@@ -65,6 +66,7 @@ mkGameState = GameState { _entities=M.empty
                         , _alerts=M.empty
                         , _watchers=[]
                         , _history=[]
+                        , _remainingAchievements=S.empty
                         , _achievements=M.empty
                         , _talkToHandlers=M.empty
                         , _gameOver=False

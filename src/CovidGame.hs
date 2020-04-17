@@ -307,3 +307,7 @@ buildCovidGame = do
     case e^.?openClosed of
       Open -> logT "The hatch is already open"
       Closed -> logT "This can only be opened from the outside for deliveries.")
+
+  registerAchievement "Big Wet Clock"
+  registerAchievement "Eyes Bigger Than Belly"
+  registerAchievement "Astral Plane"

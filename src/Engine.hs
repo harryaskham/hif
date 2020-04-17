@@ -38,10 +38,14 @@ addAlert aID a = modify $ \s -> s & alerts %~ M.insert aID a
 removeAlert :: AlertID -> App ()
 removeAlert aID = modify $ \s -> s & alerts %~ M.delete aID
 
+registerAchievement :: AchievementID -> App ()
+registerAchievement aID = modify $ over remainingAchievements (S.insert aID)
+
 addAchievement :: Achievement -> App ()
 addAchievement a@(Achievement aID aContent) = do
   logT $ "\n***ACHIEVEMENT UNLOCKED***\n" <> aID <> "\n" <> aContent
   modify (\s -> s & achievements %~ M.insert aID a)
+  modify (\s -> s & remainingAchievements %~ S.delete aID)
 
 hasAchievement :: AchievementID -> App Bool
 hasAchievement aID = do
