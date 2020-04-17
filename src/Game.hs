@@ -161,6 +161,7 @@ data GameState =
     , _sayHandlers :: [Text -> Stack GameState ()]
     , _turnOnHandlers :: Map EntityID (EntityID -> Stack GameState ())
     , _turnOffHandlers :: Map EntityID (EntityID -> Stack GameState ())
+    , _combinationHandlers :: Map (EntityID, EntityID) (EntityID -> EntityID -> Stack GameState ())
     }
 makeLenses ''GameState
 
@@ -176,6 +177,7 @@ type TalkToHandler = App ()
 type SayHandler = Text -> App ()
 type TurnOnHandler = EntityID -> App ()
 type TurnOffHandler = EntityID -> App ()
+type CombinationHandler = EntityID -> EntityID -> App ()
 
 -- Add a watcher to the game checking for things. Run every turn.
 addWatcher :: Watcher -> App ()
@@ -326,6 +328,7 @@ mkGameState = GameState { _entities=M.empty
                         , _sayHandlers=[]
                         , _turnOnHandlers=M.empty
                         , _turnOffHandlers=M.empty
+                        , _combinationHandlers=M.empty
                         }
 
 mkSimpleObj :: Name -> [Target] -> Maybe EntityID -> App Entity
@@ -1012,35 +1015,16 @@ turnOff eID = do
         Nothing -> logT $ "No way to turn off " <> e^.?name
         Just h -> h eID
 
+addCombinationHandler :: EntityID -> EntityID -> CombinationHandler -> App ()
+addCombinationHandler eID1 eID2 h = do
+  modify $ over combinationHandlers (M.insert (eID1, eID2) h)
+  modify $ over combinationHandlers (M.insert (eID2, eID1) (flip h))
+
 combine :: EntityID -> EntityID -> App ()
 combine eID1 eID2 = do
   e1 <- getEntity eID1
   e2 <- getEntity eID2
-  case (e1^.?name, e2^.?name) of
-    ("plunger", "hatch") -> do
-      let (plunger, hatch) = (e1, e2)
-      if hatch^.?openClosed == Closed
-         then logT "The hatch is closed."
-         else do
-           logT "You use the filthy plunger to prop open the delivery hatch."
-           modifyEntity (set locationID $ Just (hatch^.?entityID)) (plunger^.?entityID)
-           modifyPlayer (over inventory (fmap (S.delete $ plunger^.?entityID)))
-    ("paper plate", "an elasticated hairband") -> makeBand e1 e2
-    ("an elasticated hairband", "paper plate") -> makeBand e2 e1
-    ("alarm clock", "bath") -> do
-      logT "You place the alarm clock into the bath, like a normal person would."
-      modifyPlayer (over inventory (fmap (S.delete $ e1^.?entityID)))
-      modifyEntity (set locationID $ Just (e2^.?entityID)) (e1^.?entityID)
-    _ -> logT $ "Can't combine " <> (e1^.?name) <> " and " <> (e2^.?name)
-
--- Make the makeshift facemask
-makeBand plate band = do
-  logT "Using your medical expertise and surgical dexterity, you fashion a fucking facemask out of these two unlikely items."
-  modifyPlayer (over inventory (fmap (S.delete $ plate^.?entityID)))
-  modifyPlayer (over inventory (fmap (S.delete $ band^.?entityID)))
-  removeEntity (plate^.?entityID)
-  removeEntity (band^.?entityID)
-  mask <- mkSimpleObj "makeshift facemask" ["facemask", "mask"] Nothing
-  modifyEntity (set wearable Wearable) (mask^.?entityID)
-  desc mask (const $ return "A super-safe, military grade, virus-repellant face mask.")
-  modifyPlayer (over inventory (fmap (S.insert $ mask^.?entityID)))
+  hs <- gets (view combinationHandlers)
+  case M.lookup (eID1, eID2) hs of
+    Nothing -> logT $ "Can't combine " <> (e1^.?name) <> " and " <> (e2^.?name)
+    Just h -> h eID1 eID2

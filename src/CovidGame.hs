@@ -43,8 +43,7 @@ alarmDesc eID = do
               ]
   return $ T.unlines $ catMaybes lines
 
--- TODO: Hint at needing to wash to progress
-playerDesc eID = return "You look like shit. Beard well past shoulder-length but still patchy after all this time."
+playerDesc eID = return "You look like shit. Beard well past shoulder-length yet still patchy after all this time."
 
 alarmWatcher = do
   e <- getOnlyEntity Alarm
@@ -99,6 +98,19 @@ deliveryKnockWatcher = do
       desc rations (const $ return "Assorted rations - pouches of dehydrated egg, carbohydrate gunge, that sort of thing.")
       modifyEntity (set storable Storable) (rations^.?entityID)
       modifyEntity (set edible Edible) (rations^.?entityID)
+
+      -- Now that the plate exists, can add the handler
+      hairband <- getOnlyEntity HairBand
+      addCombinationHandler (paperPlate^.?entityID) (hairband^.?entityID) (\plateID hairbandID -> do
+        logT "Using your medical expertise and surgical dexterity, you fashion a fucking facemask out of these two unlikely items."
+        modifyPlayer (over inventory (fmap (S.delete plateID)))
+        modifyPlayer (over inventory (fmap (S.delete hairbandID)))
+        removeEntity plateID
+        removeEntity hairbandID
+        mask <- mkSimpleObj "makeshift facemask" ["facemask", "mask"] Nothing
+        modifyEntity (set wearable Wearable) (mask^.?entityID)
+        desc mask (const $ return "A super-safe, military grade, virus-repellant face mask.")
+        modifyPlayer (over inventory (fmap (S.insert $ mask^.?entityID))))
 
 hallwayDesc eID = do
   e <- getEntity eID
@@ -259,3 +271,18 @@ buildCovidGame = do
     l <- getPlayerLocation
     deliveryMan <- getEntityByName Human "delivery man"
     when ( (l^.?name) == "hallway" && isJust deliveryMan) $ enactInstruction (TalkTo "delivery man"))
+
+  addCombinationHandler (plunger^.?entityID) (hatch^.?entityID) (\plungerID hatchID -> do
+    plunger <- getEntity plungerID
+    hatch <- getEntity hatchID
+    if hatch^.?openClosed == Closed
+       then logT "The hatch is closed."
+       else do
+         logT "You use the filthy plunger to prop open the delivery hatch."
+         modifyEntity (set locationID $ Just (hatch^.?entityID)) (plunger^.?entityID)
+         modifyPlayer (over inventory (fmap (S.delete $ plunger^.?entityID))))
+
+  addCombinationHandler (alarm^.?entityID) (bath^.?entityID) (\alarmID bathID -> do
+    logT "You place the alarm clock into the bath, like a normal person would."
+    modifyPlayer (over inventory (fmap (S.delete alarmID)))
+    modifyEntity (set locationID $ Just bathID) alarmID)

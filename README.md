@@ -15,11 +15,9 @@ CLEANUP
 - Remove specificity of things
 - All messaging goes in a config, can be overridden by games
 - Combinations are registered
-- In fact, all action potentials are registered and stored
-- We should have IDs for items - things more like simpleObj than anything else
-- inventory management as helper func
+- inventory management as helper func - to add, remove etc
 - TurnOn/Off etc handlers attached to the things themselves
-- Split engine and game into separate files
 - Lots of duplication in enactInstruction - reduce this down
 - Figure out MonadState again
 - Move some functionality outside of App
+- Descriptions, etc could have the real entity piped through
