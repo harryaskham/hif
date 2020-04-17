@@ -96,6 +96,11 @@ modifyEntity f eID = do
     Just e -> modify $ \s -> s & entities %~ M.insert eID (f e)
     Nothing -> return ()
 
+modifyPlayer :: (Entity -> Entity) -> App ()
+modifyPlayer f = do
+  p <- getPlayer
+  modifyEntity f (p^.?entityID)
+
 getAllEntities :: EntityType -> App [Entity]
 getAllEntities et = do
   es <- gets (view entities)

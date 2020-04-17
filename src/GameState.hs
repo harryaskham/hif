@@ -89,3 +89,7 @@ type TurnOffHandler = EntityID -> App ()
 type CombinationHandler = EntityID -> EntityID -> App ()
 type EatHandler = EntityID -> App ()
 type OpenHandler = EntityID -> App ()
+
+-- Output text to the screen within the Monad stack
+logT :: Text -> App ()
+logT = liftIO . TIO.putStrLn

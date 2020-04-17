@@ -9,6 +9,7 @@ import CovidGame
 import Engine
 import Handler
 import Entity
+import Instruction
 
 import Control.Monad.IO.Class
 import Control.Monad.State

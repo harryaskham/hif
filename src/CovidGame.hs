@@ -9,6 +9,7 @@ import EntityType
 import Engine
 import Handler
 import Entity
+import Instruction
 
 import Control.Monad.State
 import qualified Data.Text as T
