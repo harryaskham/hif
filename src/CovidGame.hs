@@ -22,7 +22,7 @@ radioLines =
 bedroomDesc eID = do
   e <- getEntity eID
   clock <- gets (view clock)
-  radio <- getOnlyEntity Radio
+  radio <- getOneEntityByName SimpleObj "radio"
   let lines = [ if not (e^.?visited) then Just "You awake on Day 812 of The Quarantine.\n\nHalf-forgetten dreams of exponential curves leave you as you reluctantly get out of bed." else Nothing
               , Just "This is your childhood bedroom.\nThe indigo wallpaper you chose for your tenth birthday peels from the walls in uneven patches.\nThe bed is single and sweat-damp - the walls too, ever since they closed up all the vents."
               , if radio^.?onOff == On then Just $ "\nThe wall radio blares a 24/7 cast of the Boris Johnson simulacrum:\n  \"" <> (radioLines !! fromIntegral clock) <> "\"" else Nothing
@@ -46,7 +46,7 @@ alarmDesc eID = do
 playerDesc eID = return "You look like shit. Beard well past shoulder-length yet still patchy after all this time."
 
 alarmWatcher = do
-  e <- getOnlyEntity Alarm
+  e <- getOneEntityByName SimpleObj "alarm clock"
   when ((e^.?onOff) == Off) $ removeAlert "Alarm"
 
 deliveryKnockWatcher = do
@@ -107,7 +107,7 @@ deliveryKnockWatcher = do
         removeEntity eID)
 
       -- Now that the plate exists, can add the handler
-      hairband <- getOnlyEntity HairBand
+      hairband <- getOneEntityByName SimpleObj "hairband"
       addCombinationHandler (paperPlate^.?entityID) (hairband^.?entityID) (\plateID hairbandID -> do
         logT "Using your medical expertise and surgical dexterity, you fashion a fucking facemask out of these two unlikely items."
         modifyPlayer (over inventory (fmap (S.delete plateID)))
@@ -167,7 +167,7 @@ bathDesc eID = do
   return $ T.unlines $ catMaybes lines
 
 alarmBathWatcher = do
-  alarm <- getOnlyEntity Alarm
+  alarm <- getOneEntityByName SimpleObj "alarm clock"
   bath <- getOneEntityByName SimpleObj "bath"
   hasCheev <- hasAchievement "Big Wet Clock"
   when (not hasCheev && alarm^.locationID == bath^.entityID && bath^.?onOff == On)
@@ -182,16 +182,16 @@ buildCovidGame = do
   bedroom <- mkLocation "bedroom"
   desc bedroom bedroomDesc
 
-  bed <- mkSimpleObj "your bed" ["bed"] (Just $ bedroom^.?entityID)
+  bed <- mkSimpleObj "bed" ["bed"] (Just $ bedroom^.?entityID)
   desc bed (const $ return "Yellowed sheets last changed months ago cover a parabolic mattress. You want back in so, so badly.")
 
-  hairband <- mkHairband (bedroom^.?entityID)
+  hairband <- mkSimpleObj "elasticated hairband" ["hairband", "band", "headband"] (Just $ bedroom^.?entityID)
   desc hairband (const $ return "A faded elasticated hairband. Your head's big but it looks like it'd get around it.")
 
   player <- mkPlayer "yourself" $ bedroom^.?entityID
   desc player playerDesc
 
-  radio <- mkRadio $ bedroom^.?entityID
+  radio <- mkSimpleObj "radio" ["radio"] (Just $ bedroom^.?entityID)
   modifyEntity (set onOff $ Just On) (radio^.?entityID)
   desc radio radioDesc
   addTurnOnHandler (radio^.?entityID) (\eID -> do
@@ -209,7 +209,8 @@ buildCovidGame = do
         logT "There's no off switch, but you dial your way to the most quiet static you can find."
         modifyEntity (set onOff $ Just Off) (e^.?entityID))
 
-  alarm <- mkAlarm $ bedroom ^.?entityID
+  alarm <- mkSimpleObj "alarm clock" ["alarm", "clock", "alarm clock"] (Just $ bedroom^.?entityID)
+  modifyEntity (set storable Storable) (alarm^.?entityID)
   modifyEntity (set onOff $ Just On) (alarm^.?entityID)
   desc alarm alarmDesc
   addTurnOnHandler (alarm^.?entityID) (const $ logT "You can't turn an alarm on at will, man. Time only goes one way.")

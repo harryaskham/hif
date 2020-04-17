@@ -35,11 +35,7 @@ a ^.? b = fromMaybe (error $ "Unsafe entity attribute access" ++ show a) (a ^. b
 data EntityType = Player
                 | Human
                 | Location
-                | Rock
-                | Radio
-                | Alarm
                 | SimpleObj
-                | HairBand
                 deriving (Eq, Show, Ord)
 
 -- A unique ID for each type of entity
@@ -380,44 +376,6 @@ mkLocation name = do
   registerEntity location
   return location
 
-mkRadio :: EntityID -> App Entity
-mkRadio locationID = do
-  radioID <- newID Radio
-  let radio = def { _entityID=Just radioID
-                  , _name=Just "wall-mounted radio"
-                  , _locationID=Just locationID
-                  , _targets=Just $ S.fromList ["radio"]
-                  , _onOff=Just Off
-                  }
-  registerEntity radio
-  return radio
-
-mkAlarm :: EntityID -> App Entity
-mkAlarm locationID = do
-  alarmID <- newID Alarm
-  let alarm = def { _entityID=Just alarmID
-                  , _name=Just "alarm clock"
-                  , _locationID=Just locationID
-                  , _targets=Just $ S.fromList ["alarm", "clock", "alarm clock"]
-                  , _storable=Storable
-                  , _onOff=Just Off
-                  }
-  registerEntity alarm
-  return alarm
-
-mkHairband :: EntityID -> App Entity
-mkHairband locationID = do
-  hairbandID <- newID HairBand
-  let hairband = def { _entityID=Just hairbandID
-                     , _name=Just "elasticated hairband"
-                     , _locationID=Just locationID
-                     , _targets=Just $ S.fromList ["hairband", "band", "headband"]
-                     , _storable=Storable
-                     , _wearable=Wearable
-                     }
-  registerEntity hairband
-  return hairband
-  
 -- Write an entity back to the register.
 registerEntity :: Entity -> App ()
 registerEntity e = do
