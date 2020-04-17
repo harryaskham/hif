@@ -134,8 +134,9 @@ getEntityByName et n = do
 getOneEntityByName :: EntityType -> Name -> App Entity
 getOneEntityByName et n = do
   eM <- getEntityByName et n
-  let (Just e) = eM
-  return e
+  case eM of
+    Just e -> return e
+    Nothing -> error $ "getOneEntityByName error: cant find " <> T.unpack n
 
 getOnlyEntity :: EntityType -> App Entity
 getOnlyEntity et = do

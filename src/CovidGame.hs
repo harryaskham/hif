@@ -190,7 +190,7 @@ buildCovidGame = do
   bed <- mkSimpleObj "bed" ["bed"] (Just $ bedroom^.?entityID)
   desc bed (const $ return "Yellowed sheets last changed months ago cover a parabolic mattress. You want back in so, so badly.")
 
-  hairband <- mkSimpleObj "elasticated hairband" ["hairband", "band", "headband"] (Just $ bedroom^.?entityID)
+  hairband <- mkSimpleObj "hairband" ["hairband", "band", "headband"] (Just $ bedroom^.?entityID)
   modifyEntity (set storable Storable) (hairband^.?entityID)
   desc hairband (const $ return "A faded elasticated hairband. Your head's big but it looks like it'd get around it.")
 
