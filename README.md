@@ -8,6 +8,7 @@
 - repeat the mantra on the radio for special ending
 - queries - what is X
 - more verbs, even if non functional
+- testing strategy - cmd sequences that should work and get to certain states
 
 
 CLEANUP
