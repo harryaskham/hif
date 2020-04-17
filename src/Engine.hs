@@ -38,7 +38,6 @@ data EntityType = Player
                 | SimpleObj
                 deriving (Eq, Show, Ord)
 
--- A unique ID for each type of entity
 data EntityID = EntityID EntityType Integer deriving (Eq, Show, Ord)
 
 type Name = Text
@@ -132,7 +131,6 @@ instance Default Entity where
                , _visited=Nothing
                }
 
--- Get just the entity type
 entityType :: Entity -> EntityType
 entityType e = let (EntityID et _) = (e^.?entityID) in et
 
@@ -163,7 +161,6 @@ data GameState =
     }
 makeLenses ''GameState
 
--- Overall stack for the App
 type App = Stack GameState
 
 logT :: Text -> App ()
@@ -179,15 +176,32 @@ type CombinationHandler = EntityID -> EntityID -> App ()
 type EatHandler = EntityID -> App ()
 type OpenHandler = EntityID -> App ()
 
--- Add a watcher to the game checking for things. Run every turn.
-addWatcher :: Watcher -> App ()
-addWatcher w = modify $ \s -> s & watchers %~ (w:)
-
--- Add a handler run when talking to an entity
 addTalkToHandler :: EntityID -> TalkToHandler -> App ()
-addTalkToHandler eID h = modify $ \s -> s & talkToHandlers %~ M.insert eID h
+addTalkToHandler eID h = modify $ over talkToHandlers (M.insert eID h)
 
--- Run all watchers
+addEatHandler :: EntityID -> EatHandler -> App ()
+addEatHandler eID h = modify $ over eatHandlers (M.insert eID h)
+
+addOpenHandler :: EntityID -> OpenHandler -> App ()
+addOpenHandler eID h = modify $ over openHandlers (M.insert eID h)
+
+addSayHandler :: SayHandler -> App ()
+addSayHandler h = modify $ over sayHandlers (h:)
+
+addTurnOnHandler :: EntityID -> TurnOnHandler -> App ()
+addTurnOnHandler eID h = modify $ over turnOnHandlers (M.insert eID h)
+
+addTurnOffHandler :: EntityID -> TurnOffHandler -> App ()
+addTurnOffHandler eID h = modify $ over turnOffHandlers (M.insert eID h)
+
+addCombinationHandler :: EntityID -> EntityID -> CombinationHandler -> App ()
+addCombinationHandler eID1 eID2 h = do
+  modify $ over combinationHandlers (M.insert (eID1, eID2) h)
+  modify $ over combinationHandlers (M.insert (eID2, eID1) (flip h))
+
+addWatcher :: Watcher -> App ()
+addWatcher w = modify $ over watchers (w:)
+
 runWatchers :: App ()
 runWatchers = do
   ws <- gets (view watchers)
@@ -197,16 +211,6 @@ runWatchers = do
       go (w:ws) = do
         _ <- w
         go ws
-
-addAchievement :: Achievement -> App ()
-addAchievement a@(Achievement aID aContent) = do
-  logT $ "\n***ACHIEVEMENT UNLOCKED***\n" <> aID <> "\n" <> aContent
-  modify (\s -> s & achievements %~ M.insert aID a)
-
-hasAchievement :: AchievementID -> App Bool
-hasAchievement aID = do
-  as <- gets (view achievements)
-  return $ M.member aID as
 
 data Direction = DirNorth
                | DirEast
@@ -731,9 +735,6 @@ getPlayerWornEntities = do
 filterInventoryByTarget :: Target -> App [Entity]
 filterInventoryByTarget t = filterByTarget t <$> getInventoryEntities
 
-addSayHandler :: SayHandler -> App ()
-addSayHandler h = modify $ over sayHandlers (h:)
-
 enactInstruction :: Instruction -> App ()
 enactInstruction (Go dir) = do
   l <- getPlayerLocation
@@ -873,13 +874,25 @@ enactInstruction (TurnOn target) = do
   eM <- oneValidTargetedEntity target
   case eM of
     Nothing -> logT $ "Can't find " <> target
-    Just e -> turnOn (e^.?entityID)
+    Just e -> case e^.onOff of
+      Nothing -> logT "Can't turn that on"
+      Just onOffState -> do
+        hs <- gets (view turnOnHandlers)
+        case M.lookup (e^.?entityID) hs of
+          Nothing -> logT $ "No way to turn on " <> e^.?name
+          Just h -> h (e^.?entityID)
 
 enactInstruction (TurnOff target) = do
   eM <- oneValidTargetedEntity target
   case eM of
     Nothing -> logT $ "Can't find " <> target
-    Just e -> turnOff (e^.?entityID)
+    Just e -> case e^.onOff of
+      Nothing -> logT "Can't turn that off"
+      Just onOffState -> do
+        hs <- gets (view turnOffHandlers)
+        case M.lookup (e^.?entityID) hs of
+          Nothing -> logT $ "No way to turn off " <> e^.?name
+          Just h -> h (e^.?entityID)
 
 enactInstruction Undo = do
   hs <- gets (view history)
@@ -909,7 +922,11 @@ enactInstruction (Combine t1 t2) = do
      else if isNothing eM2 then logT $ "Don't know what " <> t2 <> " is"
      else let (Just e1) = eM1
               (Just e2) = eM2
-           in combine (e1^.?entityID) (e2^.?entityID)
+           in do
+              hs <- gets (view combinationHandlers)
+              case M.lookup (e1^.?entityID, e2^.?entityID) hs of
+                Nothing -> logT $ "Can't combine " <> (e1^.?name) <> " and " <> (e2^.?name)
+                Just h -> h (e1^.?entityID) (e2^.?entityID)
 
 enactInstruction (TalkTo target) = do
   eM <- oneValidTargetedEntity target
@@ -917,61 +934,19 @@ enactInstruction (TalkTo target) = do
     Nothing -> logT $ "Don't know what " <> target <> " is"
     Just e ->
       case e^.talkable of
-        Talkable -> talkTo (e^.?entityID)
+        Talkable -> do
+          hs <- gets (view talkToHandlers)
+          fromMaybe
+            (logT $ (e^.?name) <> " isn't listening to you.")
+            (M.lookup (e^.?entityID) hs)
         Untalkable -> logT $ "Can't talk to " <> e^.?name
 
-talkTo :: EntityID -> App ()
-talkTo eID = do
-  e <- getEntity eID
-  hs <- gets (view talkToHandlers)
-  fromMaybe
-    (logT $ (e^.?name) <> " isn't listening to you.")
-    (M.lookup eID hs)
+addAchievement :: Achievement -> App ()
+addAchievement a@(Achievement aID aContent) = do
+  logT $ "\n***ACHIEVEMENT UNLOCKED***\n" <> aID <> "\n" <> aContent
+  modify (\s -> s & achievements %~ M.insert aID a)
 
-addTurnOnHandler :: EntityID -> TurnOnHandler -> App ()
-addTurnOnHandler eID h = modify $ over turnOnHandlers (M.insert eID h)
-
-addTurnOffHandler :: EntityID -> TurnOffHandler -> App ()
-addTurnOffHandler eID h = modify $ over turnOffHandlers (M.insert eID h)
-
-turnOn :: EntityID -> App ()
-turnOn eID = do
-  e <- getEntity eID
-  case e^.onOff of
-    Nothing -> logT "Can't turn that on"
-    Just onOffState -> do
-      hs <- gets (view turnOnHandlers)
-      case M.lookup eID hs of
-        Nothing -> logT $ "No way to turn on " <> e^.?name
-        Just h -> h eID
-
-turnOff :: EntityID -> App ()
-turnOff eID = do
-  e <- getEntity eID
-  case e^.onOff of
-    Nothing -> logT "Can't turn that off"
-    Just onOffState -> do
-      hs <- gets (view turnOffHandlers)
-      case M.lookup eID hs of
-        Nothing -> logT $ "No way to turn off " <> e^.?name
-        Just h -> h eID
-
-addCombinationHandler :: EntityID -> EntityID -> CombinationHandler -> App ()
-addCombinationHandler eID1 eID2 h = do
-  modify $ over combinationHandlers (M.insert (eID1, eID2) h)
-  modify $ over combinationHandlers (M.insert (eID2, eID1) (flip h))
-
-combine :: EntityID -> EntityID -> App ()
-combine eID1 eID2 = do
-  e1 <- getEntity eID1
-  e2 <- getEntity eID2
-  hs <- gets (view combinationHandlers)
-  case M.lookup (eID1, eID2) hs of
-    Nothing -> logT $ "Can't combine " <> (e1^.?name) <> " and " <> (e2^.?name)
-    Just h -> h eID1 eID2
-
-addEatHandler :: EntityID -> EatHandler -> App ()
-addEatHandler eID h = modify $ over eatHandlers (M.insert eID h)
-
-addOpenHandler :: EntityID -> OpenHandler -> App ()
-addOpenHandler eID h = modify $ over openHandlers (M.insert eID h)
+hasAchievement :: AchievementID -> App Bool
+hasAchievement aID = do
+  as <- gets (view achievements)
+  return $ M.member aID as
