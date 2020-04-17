@@ -14,9 +14,7 @@ CLEANUP
 =======
 - Remove specificity of things
 - All messaging goes in a config, can be overridden by games
-- Combinations are registered
 - inventory management as helper func - to add, remove etc
-- TurnOn/Off etc handlers attached to the things themselves
 - Lots of duplication in enactInstruction - reduce this down
 - Figure out MonadState again
 - Move some functionality outside of App
