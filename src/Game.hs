@@ -162,6 +162,8 @@ data GameState =
     , _turnOnHandlers :: Map EntityID (EntityID -> Stack GameState ())
     , _turnOffHandlers :: Map EntityID (EntityID -> Stack GameState ())
     , _combinationHandlers :: Map (EntityID, EntityID) (EntityID -> EntityID -> Stack GameState ())
+    , _eatHandlers :: Map EntityID (EntityID -> Stack GameState ())
+    , _openHandlers :: Map EntityID (EntityID -> Stack GameState ())
     }
 makeLenses ''GameState
 
@@ -178,6 +180,8 @@ type SayHandler = Text -> App ()
 type TurnOnHandler = EntityID -> App ()
 type TurnOffHandler = EntityID -> App ()
 type CombinationHandler = EntityID -> EntityID -> App ()
+type EatHandler = EntityID -> App ()
+type OpenHandler = EntityID -> App ()
 
 -- Add a watcher to the game checking for things. Run every turn.
 addWatcher :: Watcher -> App ()
@@ -207,8 +211,6 @@ hasAchievement :: AchievementID -> App Bool
 hasAchievement aID = do
   as <- gets (view achievements)
   return $ M.member aID as
-
-type Speech = Text
 
 data Direction = DirNorth
                | DirEast
@@ -329,6 +331,8 @@ mkGameState = GameState { _entities=M.empty
                         , _turnOnHandlers=M.empty
                         , _turnOffHandlers=M.empty
                         , _combinationHandlers=M.empty
+                        , _eatHandlers=M.empty
+                        , _openHandlers=M.empty
                         }
 
 mkSimpleObj :: Name -> [Target] -> Maybe EntityID -> App Entity
@@ -376,23 +380,11 @@ mkLocation name = do
   registerEntity location
   return location
 
-mkRock :: EntityID -> App Entity
-mkRock locationID = do
-  rockID <- newID Rock
-  let rock = def { _entityID=Just rockID
-                 , _name=Just "a rock"
-                 , _locationID=Just locationID
-                 , _targets=Just $ S.fromList ["rock", "stone"]
-                 , _storable=Storable
-                 }
-  registerEntity rock
-  return rock
-
 mkRadio :: EntityID -> App Entity
 mkRadio locationID = do
   radioID <- newID Radio
   let radio = def { _entityID=Just radioID
-                  , _name=Just "a wall-mounted radio"
+                  , _name=Just "wall-mounted radio"
                   , _locationID=Just locationID
                   , _targets=Just $ S.fromList ["radio"]
                   , _onOff=Just Off
@@ -417,7 +409,7 @@ mkHairband :: EntityID -> App Entity
 mkHairband locationID = do
   hairbandID <- newID HairBand
   let hairband = def { _entityID=Just hairbandID
-                     , _name=Just "an elasticated hairband"
+                     , _name=Just "elasticated hairband"
                      , _locationID=Just locationID
                      , _targets=Just $ S.fromList ["hairband", "band", "headband"]
                      , _storable=Storable
@@ -946,19 +938,16 @@ enactInstruction Undo = do
       put h
 
 enactInstruction (Eat target) = do
-  es <- allValidTargetedEntities target
-  case es of
-    [] -> logT $ "Can't find " <> target <> " is"
-    es -> do
-      let e = head es
-      case e^.edible of
-        Edible -> do
-          p <- getPlayer
-          logT $ "You... you eat the " <> e^.?name
-          modifyPlayer (over inventory (fmap (S.delete $ e^.?entityID)))
-          removeEntity $ e^.?entityID
-          incrementClock
-        Inedible -> logT $ "You try hard, but the " <> (e^.?name) <> " is inedible."
+  eM <- oneValidTargetedEntity target
+  case eM of
+    Nothing -> logT $ "Can't find " <> target <> " is"
+    Just e -> case e^.edible of
+      Edible -> do
+        hs <- gets (view eatHandlers)
+        case M.lookup (e^.?entityID) hs of
+          Nothing -> logT $ "No way to eat the " <> e^.?name
+          Just h -> h (e^.?entityID)
+      Inedible -> logT $ "You try hard, but the " <> (e^.?name) <> " is inedible."
 
 enactInstruction (Combine t1 t2) = do
   eM1 <- oneValidTargetedEntity t1
@@ -1028,3 +1017,9 @@ combine eID1 eID2 = do
   case M.lookup (eID1, eID2) hs of
     Nothing -> logT $ "Can't combine " <> (e1^.?name) <> " and " <> (e2^.?name)
     Just h -> h eID1 eID2
+
+addEatHandler :: EntityID -> EatHandler -> App ()
+addEatHandler eID h = modify $ over eatHandlers (M.insert eID h)
+
+addOpenHandler :: EntityID -> OpenHandler -> App ()
+addOpenHandler eID h = modify $ over openHandlers (M.insert eID h)

@@ -12,10 +12,11 @@
 
 CLEANUP
 =======
-- Remove specificity of things
 - All messaging goes in a config, can be overridden by games
 - inventory management as helper func - to add, remove etc
 - Lots of duplication in enactInstruction - reduce this down
 - Figure out MonadState again
 - Move some functionality outside of App
 - Descriptions, etc could have the real entity piped through
+- Eat handler
+- Open handler

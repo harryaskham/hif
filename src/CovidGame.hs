@@ -98,6 +98,12 @@ deliveryKnockWatcher = do
       desc rations (const $ return "Assorted rations - pouches of dehydrated egg, carbohydrate gunge, that sort of thing.")
       modifyEntity (set storable Storable) (rations^.?entityID)
       modifyEntity (set edible Edible) (rations^.?entityID)
+      addEatHandler (rations^.?entityID) (\eID -> do
+        p <- getPlayer
+        logT "You eat the full week's supply of rations in one go. Aren't you worried you'll need those later?"
+        addAchievement $ Achievement "Eyes Bigger Than Belly" "You're gonna regret that"
+        modifyPlayer (over inventory (fmap (S.delete eID)))
+        removeEntity eID)
 
       -- Now that the plate exists, can add the handler
       hairband <- getOnlyEntity HairBand
