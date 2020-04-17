@@ -175,10 +175,32 @@ buildCovidGame = do
   radio <- mkRadio $ bedroom^.?entityID
   modifyEntity (set onOff $ Just On) (radio^.?entityID)
   desc radio radioDesc
+  addTurnOnHandler (radio^.?entityID) (\eID -> do
+    e <- getEntity eID
+    case e^.?onOff of
+      Off -> do
+        logT "You twist the dial until the bad news starts to roll once more."
+        modifyEntity (set onOff $ Just On) (e^.?entityID)
+      On -> logT "Already chirping away, friend.")
+  addTurnOffHandler (radio^.?entityID) (\eID -> do
+    e <- getEntity eID
+    case e^.?onOff of
+      Off -> logT "The radio is already off."
+      On -> do
+        logT "There's no off switch, but you dial your way to the most quiet static you can find."
+        modifyEntity (set onOff $ Just Off) (e^.?entityID))
 
   alarm <- mkAlarm $ bedroom ^.?entityID
   modifyEntity (set onOff $ Just On) (alarm^.?entityID)
   desc alarm alarmDesc
+  addTurnOnHandler (alarm^.?entityID) (const $ logT "You can't turn an alarm on at will, man. Time only goes one way.")
+  addTurnOffHandler (alarm^.?entityID) (\eID -> do
+    e <- getEntity eID
+    case e^.?onOff of
+      Off -> logT "You already took care of that, chap."
+      On -> do
+        logT "You slam a calloused hand onto the rusty metal bells, and the alarm is silenced."
+        modifyEntity (set onOff $ Just Off) (e^.?entityID))
 
   hallway <- mkLocation "hallway"
   desc hallway hallwayDesc
@@ -208,6 +230,12 @@ buildCovidGame = do
   bath <- mkSimpleObj "bath" ["bath", "tub", "bathtub", "tap", "taps"] (Just $ bathroom^.?entityID)
   modifyEntity (set onOff $ Just Off) (bath^.?entityID)
   desc bath bathDesc
+  addTurnOnHandler (bath^.?entityID) (\eID -> do
+    logT "You turn the rusty taps, and water floods the rotten tub. It quickly reaches the overflow."
+    modifyEntity (set onOff $ Just On) eID)
+  addTurnOffHandler (bath^.?entityID) (\eID -> do
+    logT "You turn off the taps and the water quickly drains through the open plug."
+    modifyEntity (set onOff $ Just Off) eID)
   
   addWatcher alarmBathWatcher
   addWatcher streetEndgameWatcher

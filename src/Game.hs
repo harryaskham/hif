@@ -159,6 +159,8 @@ data GameState =
     , _gameOver :: Bool
     , _talkToHandlers :: Map EntityID (Stack GameState ())
     , _sayHandlers :: [Text -> Stack GameState ()]
+    , _turnOnHandlers :: Map EntityID (EntityID -> Stack GameState ())
+    , _turnOffHandlers :: Map EntityID (EntityID -> Stack GameState ())
     }
 makeLenses ''GameState
 
@@ -172,6 +174,8 @@ type Description = EntityID -> App Text
 type Watcher = App ()
 type TalkToHandler = App ()
 type SayHandler = Text -> App ()
+type TurnOnHandler = EntityID -> App ()
+type TurnOffHandler = EntityID -> App ()
 
 -- Add a watcher to the game checking for things. Run every turn.
 addWatcher :: Watcher -> App ()
@@ -311,15 +315,17 @@ newID et = do
 -- Now we can finally back-ref to the aliases to make concrete our instance.
 mkGameState :: GameState
 mkGameState = GameState { _entities=M.empty
-                        , _descriptions=M.empty :: Map EntityID Description
+                        , _descriptions=M.empty
                         , _clock=0
                         , _alerts=M.empty
-                        , _watchers=[] :: [Watcher]
+                        , _watchers=[]
                         , _history=[]
                         , _achievements=M.empty
-                        , _talkToHandlers=M.empty :: Map EntityID TalkToHandler
+                        , _talkToHandlers=M.empty
                         , _gameOver=False
                         , _sayHandlers=[]
+                        , _turnOnHandlers=M.empty
+                        , _turnOffHandlers=M.empty
                         }
 
 mkSimpleObj :: Name -> [Target] -> Maybe EntityID -> App Entity
@@ -823,7 +829,7 @@ enactInstruction (Get target) = do
                    incrementClock
                    logT $ "You get the " <> target
                  else
-                   logT $ "Cannot get " <> (e^.?name))
+                   logT $ "Cannot get the " <> (e^.?name))
 
 enactInstruction (Drop target) = do
   l <- getPlayerLocation
@@ -917,20 +923,16 @@ enactInstruction Wait = do
   logT "You wait idly."
 
 enactInstruction (TurnOn target) = do
-  es <- allValidTargetedEntities target
-  case es of
-    [] -> logT $ "Can't find " <> target
-    es -> do
-      let e = head es
-      turnOn (e^.?entityID)
+  eM <- oneValidTargetedEntity target
+  case eM of
+    Nothing -> logT $ "Can't find " <> target
+    Just e -> turnOn (e^.?entityID)
 
 enactInstruction (TurnOff target) = do
-  es <- allValidTargetedEntities target
-  case es of
-    [] -> logT $ "Can't find " <> target <> " is"
-    es -> do
-      let e = head es
-      turnOff (e^.?entityID)
+  eM <- oneValidTargetedEntity target
+  case eM of
+    Nothing -> logT $ "Can't find " <> target
+    Just e -> turnOff (e^.?entityID)
 
 enactInstruction Undo = do
   hs <- gets (view history)
@@ -956,13 +958,13 @@ enactInstruction (Eat target) = do
         Inedible -> logT $ "You try hard, but the " <> (e^.?name) <> " is inedible."
 
 enactInstruction (Combine t1 t2) = do
-  es1 <- allValidTargetedEntities t1
-  es2 <- allValidTargetedEntities t2
-  if null es1
+  eM1 <- oneValidTargetedEntity t1
+  eM2 <- oneValidTargetedEntity t2
+  if isNothing eM1
      then logT $ "Don't know what " <> t1 <> " is"
-     else if null es2 then logT $ "Don't know what " <> t2 <> " is"
-     else let e1 = head es1
-              e2 = head es2
+     else if isNothing eM2 then logT $ "Don't know what " <> t2 <> " is"
+     else let (Just e1) = eM1
+              (Just e2) = eM2
            in combine (e1^.?entityID) (e2^.?entityID)
 
 enactInstruction (TalkTo target) = do
@@ -974,61 +976,41 @@ enactInstruction (TalkTo target) = do
         Talkable -> talkTo (e^.?entityID)
         Untalkable -> logT $ "Can't talk to " <> e^.?name
 
--- TODO: Find a way for this to be MonadState
 talkTo :: EntityID -> App ()
 talkTo eID = do
   e <- getEntity eID
   hs <- gets (view talkToHandlers)
-  case M.lookup eID hs of
-    Nothing -> logT $ (e^.?name) <> " isn't listening to you."
-    Just h -> h
+  fromMaybe
+    (logT $ (e^.?name) <> " isn't listening to you.")
+    (M.lookup eID hs)
+
+addTurnOnHandler :: EntityID -> TurnOnHandler -> App ()
+addTurnOnHandler eID h = modify $ over turnOnHandlers (M.insert eID h)
+
+addTurnOffHandler :: EntityID -> TurnOffHandler -> App ()
+addTurnOffHandler eID h = modify $ over turnOffHandlers (M.insert eID h)
 
 turnOn :: EntityID -> App ()
 turnOn eID = do
   e <- getEntity eID
-  if isNothing (e^.onOff)
-     then logT "Can't turn that on"
-     else case entityType e of
-       Alarm -> logT "You can't turn an alarm on at will, man. Time only goes one way."
-       Radio -> case e^.?onOff of
-                  Off -> do
-                    logT "You twist the dial until the bad news starts to roll once more."
-                    modifyEntity (set onOff $ Just On) (e^.?entityID)
-                    incrementClock
-                  On -> logT "Already chirping away, friend."
-       SimpleObj -> case e^.?name of
-                      "bath" -> do
-                        logT "You turn the rusty taps, and water floods the rotten tub. It quickly reaches the overflow."
-                        modifyEntity (set onOff $ Just On) (e^.?entityID)
-                        incrementClock
-                      n -> logT $ "Can't turn on " <> n
-       _ -> logT "Nothing happens"
+  case e^.onOff of
+    Nothing -> logT "Can't turn that on"
+    Just onOffState -> do
+      hs <- gets (view turnOnHandlers)
+      case M.lookup eID hs of
+        Nothing -> logT $ "No way to turn on " <> e^.?name
+        Just h -> h eID
 
 turnOff :: EntityID -> App ()
 turnOff eID = do
   e <- getEntity eID
-  if isNothing (e^.onOff)
-     then logT "Can't turn that off"
-     else case entityType e of
-       Alarm -> case e^.?onOff of
-                  Off -> logT "You already took care of that, chap."
-                  On -> do
-                    logT "You slam a calloused hand onto the rusty metal bells, and the alarm is silenced."
-                    modifyEntity (set onOff $ Just Off) (e^.?entityID)
-                    incrementClock
-       Radio -> case e^.?onOff of
-                  Off -> logT "The radio is already off."
-                  On -> do
-                    logT "There's no off switch, but you dial your way to the most quiet static you can find."
-                    modifyEntity (set onOff $ Just Off) (e^.?entityID)
-                    incrementClock
-       SimpleObj -> case e^.?name of
-                      "bath" -> do
-                        logT "You turn off the taps and the water quickly drains through the open plug."
-                        modifyEntity (set onOff $ Just Off) (e^.?entityID)
-                        incrementClock
-                      n -> logT $ "Can't turn off " <> n
-       _ -> logT "Nothing happens"
+  case e^.onOff of
+    Nothing -> logT "Can't turn that off"
+    Just onOffState -> do
+      hs <- gets (view turnOffHandlers)
+      case M.lookup eID hs of
+        Nothing -> logT $ "No way to turn off " <> e^.?name
+        Just h -> h eID
 
 combine :: EntityID -> EntityID -> App ()
 combine eID1 eID2 = do
