@@ -93,6 +93,7 @@ deliveryKnockWatcher = do
       rationBox <- mkSimpleObj "ration box" ["ration box", "box"] (Just $ hallway^.?entityID)
       desc rationBox (const $ return "A brown cardboard box.")
       modifyEntity (set storable Storable) (rationBox^.?entityID)
+      addOpenHandler (rationBox^.?entityID) (const $ logT "The box tipped over and lays open on its side")
 
       rations <- mkSimpleObj "assorted rations" ["rations"] (Just $ hallway^.?entityID)
       desc rations (const $ return "Assorted rations - pouches of dehydrated egg, carbohydrate gunge, that sort of thing.")
