@@ -6,6 +6,7 @@ module CovidGame where
 import Tools
 import GameState
 import EntityType
+import Engine
 import Watcher
 
 import Control.Monad.State
