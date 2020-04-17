@@ -6,7 +6,7 @@ import Tools
 import Entity
 import GameState
 import CovidGame
-
+import Watcher
 
 import Control.Monad.IO.Class
 import Control.Monad.State

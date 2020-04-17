@@ -117,19 +117,6 @@ addCombinationHandler eID1 eID2 h = do
   modify $ over combinationHandlers (M.insert (eID1, eID2) h)
   modify $ over combinationHandlers (M.insert (eID2, eID1) (flip h))
 
-addWatcher :: Watcher -> App ()
-addWatcher w = modify $ over watchers (w:)
-
-runWatchers :: App ()
-runWatchers = do
-  ws <- gets (view watchers)
-  go ws
-    where
-      go [] = return ()
-      go (w:ws) = do
-        _ <- w
-        go ws
-
 getAllEntities :: EntityType -> App [Entity]
 getAllEntities et = do
   es <- gets (view entities)

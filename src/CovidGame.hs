@@ -6,6 +6,7 @@ module CovidGame where
 import Tools
 import GameState
 import Entity
+import Watcher
 
 import Control.Monad.State
 import qualified Data.Text as T
