@@ -21,3 +21,4 @@ CLEANUP
 - Descriptions, etc could have the real entity piped through
 - Terse versions of all builder functions
 - HasEntityID to let us use funcs with ids or things?
+- Split things up

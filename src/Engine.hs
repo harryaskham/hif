@@ -7,6 +7,8 @@
 
 module Engine where
 
+import Tools
+
 import Control.Lens
 import Control.Monad.State
 import Data.Default
