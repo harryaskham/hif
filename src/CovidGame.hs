@@ -8,6 +8,7 @@ import GameState
 import EntityType
 import Engine
 import Handler
+import Entity
 
 import Control.Monad.State
 import qualified Data.Text as T
