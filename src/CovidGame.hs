@@ -5,6 +5,7 @@ module CovidGame where
 
 import Tools
 import Engine
+import Entity
 
 import Control.Monad.State
 import qualified Data.Text as T

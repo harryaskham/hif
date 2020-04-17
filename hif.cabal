@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ffc4148c86e5d16eedcbef9c9dea110afc66705cbdbf04d317bd4e76e4027840
+-- hash: b49fd3d001177421f920cec1219a0963e06ec9dde698ac9312587c9e4d5383b8
 
 name:           hif
 version:        0.1.0.0
@@ -29,6 +29,7 @@ library
   exposed-modules:
       CovidGame
       Engine
+      Entity
       Tools
   other-modules:
       Paths_hif
