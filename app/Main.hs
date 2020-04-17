@@ -2,10 +2,13 @@
 
 module Main where
 
-import Control.Monad.IO.Class
-import Control.Monad.State
+import Tools
 import Engine
 import CovidGame
+
+
+import Control.Monad.IO.Class
+import Control.Monad.State
 import qualified Data.Text as T
 import Control.Lens
 import qualified Data.Text.IO as TIO

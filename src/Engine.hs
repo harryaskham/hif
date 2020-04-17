@@ -30,10 +30,6 @@ import Text.Parsec.String (Parser)
 import Control.Monad (void)
 import Data.Char (isLetter, isDigit)
 
--- Unsafely lens into a Maybe
-(^.?) :: Show s => s -> Getting (Maybe a) s (Maybe a) -> a
-a ^.? b = fromMaybe (error $ "Unsafe entity attribute access" ++ show a) (a ^. b)
-
 data EntityType = Player
                 | Human
                 | Location
