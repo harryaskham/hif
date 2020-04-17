@@ -158,6 +158,7 @@ data GameState =
     , _achievements :: Map AchievementID Achievement
     , _gameOver :: Bool
     , _talkToHandlers :: Map EntityID (Stack GameState ())
+    , _sayHandlers :: [Text -> Stack GameState ()]
     }
 makeLenses ''GameState
 
@@ -170,6 +171,7 @@ logT = liftIO . TIO.putStrLn
 type Description = EntityID -> App Text
 type Watcher = App ()
 type TalkToHandler = App ()
+type SayHandler = Text -> App ()
 
 -- Add a watcher to the game checking for things. Run every turn.
 addWatcher :: Watcher -> App ()
@@ -317,6 +319,7 @@ mkGameState = GameState { _entities=M.empty
                         , _achievements=M.empty
                         , _talkToHandlers=M.empty :: Map EntityID TalkToHandler
                         , _gameOver=False
+                        , _sayHandlers=[]
                         }
 
 mkSimpleObj :: Name -> [Target] -> Maybe EntityID -> App Entity
@@ -769,6 +772,9 @@ getPlayerWornEntities = do
 filterInventoryByTarget :: Target -> App [Entity]
 filterInventoryByTarget t = filterByTarget t <$> getInventoryEntities
 
+addSayHandler :: SayHandler -> App ()
+addSayHandler h = modify $ over sayHandlers (h:)
+
 enactInstruction :: Instruction -> App ()
 enactInstruction (Go dir) = do
   l <- getPlayerLocation
@@ -780,21 +786,14 @@ enactInstruction (Go dir) = do
 
 enactInstruction (Say content) = do
   logT $ "You speak aloud: '" <> content <> "'"
-  l <- getPlayerLocation
-  when ( (l^.?name) == "bedroom" && T.isInfixOf "HOME" (T.toUpper content) && T.isInfixOf "NHS" (T.toUpper content) && T.isInfixOf "DEATH" (T.toUpper content) ) $ do
-    addAchievement $ Achievement "Simon Says" "Do you do everything you hear on the radio?"
-    setGameOver
-    ap <- mkLocation "Astral Plane"
-    desc ap (const $ return
-      $ "As you recite the mantra on the radio, you lose touch with your corporeal body.\n"
-      <> "You feel yourself becoming one with the simulacrum as you continue your chant.\n"
-      <> "Hours pass - then days - and your lips chap with thirst. Still you chant.\n"
-      <> "Your body expires, but your immortal soul may yet live on in the Hancock Machine.")
-    modifyPlayer (set locationID $ Just $ ap^.?entityID)
-
-  deliveryMan <- getEntityByName Human "delivery man"
-  when ( (l^.?name) == "hallway" && isJust deliveryMan) $ enactInstruction (TalkTo "delivery man")
-
+  hs <- gets (view sayHandlers)
+  runHandlers hs
+    where
+      runHandlers [] = return ()
+      runHandlers (h:hs) = do
+        _ <- h content
+        runHandlers hs
+  
 enactInstruction Help =
   liftIO
   $ TIO.putStrLn
@@ -804,6 +803,7 @@ enactInstruction Help =
               , "'talk to' the people you meet!"
               , "'turn on' stuff! 'turn off' stuff!"
               , "'put X in Y' or 'combine X with Y' if you think that's a good idea"
+              , "'say' something to say it out loud"
               , "'get thing' and 'drop thing', and 'i' or 'inventory' to see what you've got"
               , "Did ya fuck something up? 'undo' to go back a step!"
               ]

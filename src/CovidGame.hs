@@ -211,3 +211,23 @@ buildCovidGame = do
   
   addWatcher alarmBathWatcher
   addWatcher streetEndgameWatcher
+
+  -- Add the radio ending
+  addSayHandler (\content -> do
+    l <- getPlayerLocation
+    when ( (l^.?name) == "bedroom" && T.isInfixOf "HOME" (T.toUpper content) && T.isInfixOf "NHS" (T.toUpper content) && T.isInfixOf "DEATH" (T.toUpper content) ) $ do
+      addAchievement $ Achievement "Simon Says" "Do you do everything you hear on the radio?"
+      setGameOver
+      ap <- mkLocation "Astral Plane"
+      desc ap (const $ return
+        $ "As you recite the mantra on the radio, you lose touch with your corporeal body.\n"
+        <> "You feel yourself becoming one with the simulacrum as you continue your chant.\n"
+        <> "Hours pass - then days - and your lips chap with thirst. Still you chant.\n"
+        <> "Your body expires, but your immortal soul may yet live on in the Hancock Machine.")
+      modifyPlayer (set locationID $ Just $ ap^.?entityID))
+
+  -- You can say anything to the delivery guy
+  addSayHandler (\_ -> do
+    l <- getPlayerLocation
+    deliveryMan <- getEntityByName Human "delivery man"
+    when ( (l^.?name) == "hallway" && isJust deliveryMan) $ enactInstruction (TalkTo "delivery man"))

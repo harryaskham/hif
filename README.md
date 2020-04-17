@@ -12,9 +12,8 @@
 
 CLEANUP
 =======
-Remove specificity of things
+- Remove specificity of things
 - All messaging goes in a config, can be overridden by games
-- Humans have talk-triggers
 - Combinations are registered
 - In fact, all action potentials are registered and stored
 - We should have IDs for items - things more like simpleObj than anything else
