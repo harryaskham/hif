@@ -35,29 +35,6 @@ import Data.Char (isLetter, isDigit)
 logT :: Text -> App ()
 logT = liftIO . TIO.putStrLn
 
-addTalkToHandler :: EntityID -> TalkToHandler -> App ()
-addTalkToHandler eID h = modify $ over talkToHandlers (M.insert eID h)
-
-addEatHandler :: EntityID -> EatHandler -> App ()
-addEatHandler eID h = modify $ over eatHandlers (M.insert eID h)
-
-addOpenHandler :: EntityID -> OpenHandler -> App ()
-addOpenHandler eID h = modify $ over openHandlers (M.insert eID h)
-
-addSayHandler :: SayHandler -> App ()
-addSayHandler h = modify $ over sayHandlers (h:)
-
-addTurnOnHandler :: EntityID -> TurnOnHandler -> App ()
-addTurnOnHandler eID h = modify $ over turnOnHandlers (M.insert eID h)
-
-addTurnOffHandler :: EntityID -> TurnOffHandler -> App ()
-addTurnOffHandler eID h = modify $ over turnOffHandlers (M.insert eID h)
-
-addCombinationHandler :: EntityID -> EntityID -> CombinationHandler -> App ()
-addCombinationHandler eID1 eID2 h = do
-  modify $ over combinationHandlers (M.insert (eID1, eID2) h)
-  modify $ over combinationHandlers (M.insert (eID2, eID1) (flip h))
-
 -- Non-thread-safe way to get a new entity ID.
 newID :: EntityType -> App EntityID
 newID et = do
@@ -226,14 +203,6 @@ getPlayerWornEntities = do
 
 filterInventoryByTarget :: Target -> App [Entity]
 filterInventoryByTarget t = filterByTarget t <$> getInventoryEntities
-
--- Register the given description function with the entity
-addDesc :: EntityID -> Description -> App ()
-addDesc eID d = modify $ \s -> s & descriptions %~ M.insert eID d
-
--- Quick helper to avoid ID usage
-desc :: Entity -> Description -> App ()
-desc e = addDesc (e^.?entityID)
 
 -- Get the single player entity
 getPlayer :: App Entity

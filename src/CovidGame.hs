@@ -7,7 +7,7 @@ import Tools
 import GameState
 import EntityType
 import Engine
-import Watcher
+import Handler
 
 import Control.Monad.State
 import qualified Data.Text as T

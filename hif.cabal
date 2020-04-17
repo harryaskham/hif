@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8b24ebcd35bf514e0a281ac7175e2777fe6bd85be7350c6a12e1d22f2fe9dcca
+-- hash: 8dd56bd60a69c2d31e02ccef4d367f2c3d50513cdd37c6373c06dad245e11e8d
 
 name:           hif
 version:        0.1.0.0
@@ -31,6 +31,7 @@ library
       Engine
       EntityType
       GameState
+      Handler
       Tools
       Watcher
   other-modules:

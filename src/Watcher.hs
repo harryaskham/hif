@@ -29,16 +29,3 @@ import Text.Parsec.Char
 import Text.Parsec.String (Parser)
 import Control.Monad (void)
 import Data.Char (isLetter, isDigit)
-
-addWatcher :: Watcher -> App ()
-addWatcher w = modify $ over watchers (w:)
-
-runWatchers :: App ()
-runWatchers = do
-  ws <- gets (view watchers)
-  go ws
-    where
-      go [] = return ()
-      go (w:ws) = do
-        _ <- w
-        go ws
