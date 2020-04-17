@@ -4,7 +4,7 @@ module Main where
 
 import Control.Monad.IO.Class
 import Control.Monad.State
-import Game
+import Engine
 import CovidGame
 import qualified Data.Text as T
 import Control.Lens

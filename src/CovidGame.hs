@@ -3,7 +3,7 @@
 
 module CovidGame where
 
-import Game
+import Engine
 import Control.Monad.State
 import qualified Data.Text as T
 import qualified Data.Set as S

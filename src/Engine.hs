@@ -5,7 +5,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Game where
+module Engine where
 
 import Control.Lens
 import Control.Monad.State
