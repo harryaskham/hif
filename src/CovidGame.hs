@@ -4,7 +4,7 @@
 module CovidGame where
 
 import Tools
-import Engine
+import GameState
 import Entity
 
 import Control.Monad.State

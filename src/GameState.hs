@@ -5,7 +5,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Engine where
+module GameState where
 
 import Tools
 import Entity
@@ -76,12 +76,10 @@ mkGameState = GameState { _entities=M.empty
                         , _openHandlers=M.empty
                         }
 
+-- Instantiate MTL stack for game
 type App = Stack GameState
 
--- Output text to the screen within the Monad stack
-logT :: Text -> App ()
-logT = liftIO . TIO.putStrLn
-
+-- Helpers for concrete workers
 type Description = EntityID -> App Text
 type Watcher = App ()
 type TalkToHandler = App ()
@@ -91,6 +89,10 @@ type TurnOffHandler = EntityID -> App ()
 type CombinationHandler = EntityID -> EntityID -> App ()
 type EatHandler = EntityID -> App ()
 type OpenHandler = EntityID -> App ()
+
+-- Output text to the screen within the Monad stack
+logT :: Text -> App ()
+logT = liftIO . TIO.putStrLn
 
 addTalkToHandler :: EntityID -> TalkToHandler -> App ()
 addTalkToHandler eID h = modify $ over talkToHandlers (M.insert eID h)
@@ -304,14 +306,6 @@ mkLocation name = do
                      }
   registerEntity location
   return location
-
--- Adds a given alert.
-addAlert :: AlertID -> Alert -> App ()
-addAlert aID a = modify $ \s -> s & alerts %~ M.insert aID a
-
--- Removes the given alert.
-removeAlert :: AlertID -> App ()
-removeAlert aID = modify $ \s -> s & alerts %~ M.delete aID
 
 -- Get the single player entity
 getPlayer :: App Entity
@@ -835,6 +829,12 @@ enactInstruction (TalkTo target) = do
             (logT $ (e^.?name) <> " isn't listening to you.")
             (M.lookup (e^.?entityID) hs)
         Untalkable -> logT $ "Can't talk to " <> e^.?name
+
+addAlert :: AlertID -> Alert -> App ()
+addAlert aID a = modify $ \s -> s & alerts %~ M.insert aID a
+
+removeAlert :: AlertID -> App ()
+removeAlert aID = modify $ \s -> s & alerts %~ M.delete aID
 
 addAchievement :: Achievement -> App ()
 addAchievement a@(Achievement aID aContent) = do

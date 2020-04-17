@@ -3,8 +3,8 @@
 module Main where
 
 import Tools
-import Engine
 import Entity
+import GameState
 import CovidGame
 
 
