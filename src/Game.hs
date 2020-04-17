@@ -465,9 +465,6 @@ getDescription eID = do
   let d = fromMaybe (error $ "No desc for " ++ show eID) $ M.lookup eID ds
   d eID
 
--- TODO: Smarter location descriptions that build the things into the text.
--- Description should be a function that builds text, rather than just text.
--- So should name. These can be consts for now.
 describeCurrentTurn :: App Text
 describeCurrentTurn = do
   st <- get
@@ -477,8 +474,7 @@ describeCurrentTurn = do
   clock <- gets (view clock)
   lDesc <- getDescription $ l^.?entityID
   alertsMap <- gets (view alerts)
-  let clockrow = Just $ "The time is " <> showt clock
-      header = Just $ "\n" <> (T.toUpper (l^.?name)) <> "\n=========="
+  let header = Just $ "\n" <> T.toUpper (l^.?name) <> "\n=========="
       desc = Just lDesc
       alerts = case snd <$> M.toList alertsMap of
                  [] -> Nothing
@@ -504,7 +500,6 @@ describeCurrentTurn = do
       , (toDown, "Below you")
       ]
 
-  -- TODO: Reinstate clock / things here
   return $ T.intercalate "\n" (catMaybes [header, desc, alerts, thingsHere] ++ directions)
 
 data InstructionError = InstructionError
