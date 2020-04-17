@@ -19,6 +19,9 @@ Remove specificity of things
 - In fact, all action potentials are registered and stored
 - We should have IDs for items - things more like simpleObj than anything else
 - inventory management as helper func
-- TIO printing helper func
 - TurnOn/Off etc handlers attached to the things themselves
 - Split engine and game into separate files
+- Lots of duplication in enactInstruction - reduce this down
+-
+- need to write the lenses
+- figure out the quantification thing

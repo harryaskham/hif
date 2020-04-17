@@ -50,14 +50,56 @@ alarmWatcher = do
   e <- getOnlyEntity Alarm
   when ((e^.?onOff) == Off) $ removeAlert "Alarm"
 
+deliveryKnockWatcher :: (MonadState GameState m, MonadIO m) => m ()
 deliveryKnockWatcher = do
-  clock <- gets (view clock)
+  time <- gets (view clock)
   deliveryMan <- getEntityByName Human "delivery man"
-  when (clock == 5 && isNothing deliveryMan) $ do
+  when (time == 5 && isNothing deliveryMan) $ do
     addAlert "Delivery" "You hear a frantic knocking at your front door. You should get that."
     hallway <- getLocationByName "hallway"
     deliveryMan <- mkHuman "delivery man" ["man", "delivery", "delivery man"] (hallway^.?entityID)
+    modifyEntity (set talkable Talkable) (deliveryMan^.?entityID)
     desc deliveryMan (const $ return "You can't see him too well through the frosted glass, but you can hear him okay")
+    addTalkToHandler (deliveryMan^.?entityID) $ do
+      incrementClock
+      logT "\"Fuckin' finally man! What took you? I gotta make hundreds more of these today to get mine!\""
+      logT "The delivery guy swipes a card, throwing open the hatch, slides a ration box through, and leaves hurriedly."
+      logT "The box tips over, spilling some of its contents."
+
+      -- The guy leaves, the hatch opens
+      removeAlert "Delivery"
+      removeEntity $ deliveryMan^.?entityID
+      hatch <- getOneEntityByName SimpleObj "hatch"
+      modifyEntity (set openClosed $ Just Open) (hatch^.?entityID)
+
+      -- Can now get to the street
+      hallway <- getLocationByName "hallway"
+      street <- getLocationByName "street"
+      modifyEntity (set toNorth $ Just (street^.?entityID)) (hallway^.?entityID)
+
+      -- The hatch shuts after 2 more goes
+      oldTime <- gets (view clock)
+      addWatcher $ do
+        hatch <- getOneEntityByName SimpleObj "hatch"
+        newTime <- gets (view clock)
+        plunger <- getOneEntityByName SimpleObj "plunger"
+        when (hatch^.?openClosed == Open && newTime >= oldTime + 1 && (plunger^.locationID) /= (hatch ^.entityID)) $ do
+          addAlert "HatchShut" "The hatch on the front door has slammed shut, and won't reopen for another week."
+          modifyEntity (set openClosed $ Just Closed) (hatch^.?entityID)
+
+      -- The rations arrive
+      paperPlate <- mkSimpleObj "paper plate" ["plate", "paper plate"] (Just $ hallway^.?entityID)
+      modifyEntity (set storable Storable) (paperPlate^.?entityID)
+      desc paperPlate (const $ return "A paper plate, like we used to use at picnics in the before times.")
+
+      rationBox <- mkSimpleObj "ration box" ["ration box", "box"] (Just $ hallway^.?entityID)
+      desc rationBox (const $ return "A brown cardboard box.")
+      modifyEntity (set storable Storable) (rationBox^.?entityID)
+
+      rations <- mkSimpleObj "assorted rations" ["rations"] (Just $ hallway^.?entityID)
+      desc rations (const $ return "Assorted rations - pouches of dehydrated egg, carbohydrate gunge, that sort of thing.")
+      modifyEntity (set storable Storable) (rations^.?entityID)
+      modifyEntity (set edible Edible) (rations^.?entityID)
 
 hallwayDesc eID = do
   e <- getEntity eID

@@ -1,6 +1,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Game where
 
@@ -16,6 +18,8 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Text (Text)
 import TextShow
+import qualified Data.List.Safe as SL
+import Control.Monad.Extra
 
 import Text.Parsec
 import Text.Parsec.Char
@@ -80,6 +84,10 @@ data WearableState = Wearable
                    | Unwearable
                    deriving (Eq, Show)
 
+data TalkableState = Talkable
+                   | Untalkable
+                   deriving (Eq, Show)
+
 data Entity = Entity { _entityID :: Maybe EntityID
                      , _name :: Maybe Name
                      , _targets :: Maybe (Set Target)
@@ -89,6 +97,7 @@ data Entity = Entity { _entityID :: Maybe EntityID
                      , _edible :: EdibleState
                      , _potable :: PotableState
                      , _wearable :: WearableState
+                     , _talkable :: TalkableState
                      , _onOff :: Maybe OnOffState
                      , _openClosed :: Maybe OpenClosedState
                      , _locationID :: Maybe EntityID
@@ -114,6 +123,7 @@ instance Default Entity where
                , _edible=Inedible
                , _potable=Unpotable
                , _wearable=Unwearable
+               , _talkable=Untalkable
                , _locationID=Nothing
                , _onOff=Nothing
                , _openClosed=Nothing
@@ -138,30 +148,52 @@ type Alert = Text
 type AchievementID = Text
 data Achievement = Achievement AchievementID Text
 
-data GameState = GameState { _entities :: Map EntityID Entity
-                           , _descriptions :: Map EntityID (GameState -> EntityID -> Text)
-                           , _clock :: Integer
-                           , _alerts :: Map AlertID Alert
-                           , _watchers :: [StateT GameState IO ()]
-                           , _history :: [GameState]
-                           , _achievements :: Map AchievementID Achievement
-                           , _gameOver :: Bool
-                           }
+data GameState where
+  GameState
+    :: (MonadState GameState m, MonadIO m)
+    => { _entities :: Map EntityID Entity
+       , _descriptions :: Map EntityID (EntityID -> m Text)
+       , _clock :: Integer
+       , _alerts :: Map AlertID Alert
+       , _watchers :: [m ()]
+       , _history :: [GameState]
+       , _achievements :: Map AchievementID Achievement
+       , _gameOver :: Bool
+       , _talkToHandlers :: Map EntityID (m ())
+       } -> GameState
 makeLenses ''GameState
 
 -- Overall stack for the App
 type App = StateT GameState IO
 
--- TODO: Somehow move back to monadig
--- TODO: Figure out how to remove duplication with the above circular reference
-type Description = GameState -> EntityID -> Text
-
--- TODO: Figure out as per above, should be monadic and avoid circular reference
+type Description = EntityID -> App Text
 type Watcher = App ()
+type TalkToHandler = App ()
+
+-- Need manual lenses now
+descriptions ::  Lens' GameState (Map EntityID (EntityID -> m Text))
+descriptions = undefined
+  {-
+descriptions = lens getDescriptions (\st newDescriptions -> setDescriptions newDescriptions st)
+  where
+    getDescriptions (GameState {..}) = descriptions
+    setDescriptions ds (GameState {..}) = GameState { _descriptions=ds, ..}
+    -}
+
+watchers :: (MonadState GameState m, MonadIO m) => Lens' GameState ([m ()])
+watchers = undefined
+
+talkToHandlers :: (MonadState GameState m, MonadIO m) => Lens' GameState (Map EntityID (m ()))
+talkToHandlers = undefined
+
 
 -- Add a watcher to the game checking for things. Run every turn.
 addWatcher :: (MonadState GameState m) => Watcher -> m ()
 addWatcher w = modify $ \s -> s & watchers %~ (w:)
+
+-- Add a handler run when talking to an entity
+addTalkToHandler :: (MonadState GameState m) => EntityID -> TalkToHandler -> m ()
+addTalkToHandler eID h = modify $ \s -> s & talkToHandlers %~ M.insert eID h
 
 -- Run all watchers
 runWatchers :: App ()
@@ -290,14 +322,16 @@ newID et = do
   es <- getAllEntities et
   return $ EntityID et (fromIntegral (length es) + 1)
 
+-- Now we can finally back-ref to the aliases to make concrete our instance.
 mkGameState :: GameState
 mkGameState = GameState { _entities=M.empty
-                        , _descriptions=M.empty
+                        , _descriptions=M.empty :: Map EntityID Description
                         , _clock=0
                         , _alerts=M.empty
-                        , _watchers=[]
+                        , _watchers=[] :: [Watcher]
                         , _history=[]
                         , _achievements=M.empty
+                        , _talkToHandlers=M.empty :: Map EntityID TalkToHandler
                         , _gameOver=False
                         }
 
@@ -414,9 +448,8 @@ modifyEntity f eID = do
 addDesc :: (MonadState GameState m) => EntityID -> Description -> m ()
 addDesc eID d = modify $ \s -> s & descriptions %~ M.insert eID d
 
--- Helpers to build out descriptions
-buildDescription f st eID = evalState (f eID) st
-desc e d = addDesc (e^.?entityID) (buildDescription d)
+-- Quick helper
+desc e d = addDesc (e^.?entityID) d
 
 -- Adds a given alert.
 addAlert :: (MonadState GameState m) => AlertID -> Alert -> m ()
@@ -442,17 +475,16 @@ getPlayerLocation = do
   getEntity $ p^.?locationID
 
 -- Gets the compiled description for the given entity
-getDescription :: (MonadState GameState m) => EntityID -> m Text
+getDescription :: (MonadState GameState m, MonadIO m) => EntityID -> m Text
 getDescription eID = do
-  st <- get
   ds <- gets (view descriptions)
-  let (Just d) = M.lookup eID ds
-  return $ d st eID
+  let d = fromMaybe (error $ "No desc for " ++ show eID) $ M.lookup eID ds
+  d eID
 
 -- TODO: Smarter location descriptions that build the things into the text.
 -- Description should be a function that builds text, rather than just text.
 -- So should name. These can be consts for now.
-describeCurrentTurn :: (MonadState GameState m) => m Text
+describeCurrentTurn :: (MonadState GameState m, MonadIO m) => m Text
 describeCurrentTurn = do
   st <- get
   p <- getPlayer
@@ -500,8 +532,7 @@ runInstruction instructionText =
     (Just i) -> do
       enactInstruction i
       return $ Right i
-    Nothing -> do
-      return $ Left InstructionError
+    Nothing -> return $ Left InstructionError
 
 parseGo :: Parser Instruction
 parseGo =
@@ -710,9 +741,11 @@ lensForDir DirWest = toWest
 lensForDir DirUp = toUp
 lensForDir DirDown = toDown
 
+-- Increment game time by one.
 incrementClock :: MonadState GameState m => m ()
 incrementClock = modify $ over clock (+1)
 
+-- Get all entities at the player's location, including contained things.
 getEntitiesNearPlayer :: (MonadState GameState m) => m [Entity]
 getEntitiesNearPlayer = do
   p <- getPlayer
@@ -721,19 +754,33 @@ getEntitiesNearPlayer = do
 filterByTarget :: Target -> [Entity] -> [Entity]
 filterByTarget t = filter (\e -> t `S.member` (e^.?targets))
 
+-- All non-held items near the player
 getTargetedEntitiesNearPlayer :: (MonadState GameState m) => Target -> m [Entity]
 getTargetedEntitiesNearPlayer t = filterByTarget t <$> getEntitiesNearPlayer
 
+-- All items either near player or in inventory matching the given target
 allValidTargetedEntities :: (MonadState GameState m) => Target -> m [Entity]
 allValidTargetedEntities t = do
   es1 <- getTargetedEntitiesNearPlayer t
   es2 <- filterInventoryByTarget t
   return $ es1 ++ es2
 
+-- Gets a single arbitrary match to the given target.
+-- Nothing if it doesn't match or can't be found.
+oneValidTargetedEntity :: (MonadState GameState m) => Target -> m (Maybe Entity)
+oneValidTargetedEntity t = do
+  es <- allValidTargetedEntities t
+  return $ SL.head es
+
 getInventoryEntities :: (MonadState GameState m) => m [Entity]
 getInventoryEntities = do
   p <- getPlayer
   traverse getEntity (S.toList $ p^.?inventory)
+
+inPlayerInventory :: (MonadState GameState m) => EntityID -> m Bool
+inPlayerInventory eID = do
+  p <- getPlayer
+  return $ eID `S.member` (p^.?inventory)
 
 getPlayerWornEntities :: (MonadState GameState m) => m [Entity]
 getPlayerWornEntities = do
@@ -784,19 +831,20 @@ enactInstruction Help =
 
 enactInstruction (Get target) = do
   p <- getPlayer
-  es <- getTargetedEntitiesNearPlayer target
-  case es of
-    [] -> logT $ "No " <> target <> " to get."
-    es -> do
-      let e = head es
-      if isJust (e^.locationID) && e^.storable == Storable
-         then do
-           modifyEntity (set locationID Nothing) (e^.?entityID)
-           modifyPlayer (over inventory (fmap (S.insert $ e^.?entityID)))
-           incrementClock
-           logT $ "You get the " <> target
-         else
-           logT $ "Cannot get " <> (e^.?name)
+  eM <- oneValidTargetedEntity target
+  case eM of
+    Nothing -> logT $ "No " <> target <> " to get."
+    Just e ->
+      ifM (inPlayerInventory (e^.?entityID))
+          (logT $ "You already have " <> e^.?name)
+          (if isJust (e^.locationID) && e^.storable == Storable
+                 then do
+                   modifyEntity (set locationID Nothing) (e^.?entityID)
+                   modifyPlayer (over inventory (fmap (S.insert $ e^.?entityID)))
+                   incrementClock
+                   logT $ "You get the " <> target
+                 else
+                   logT $ "Cannot get " <> (e^.?name))
 
 enactInstruction (Drop target) = do
   l <- getPlayerLocation
@@ -939,60 +987,22 @@ enactInstruction (Combine t1 t2) = do
            in combine (e1^.?entityID) (e2^.?entityID)
 
 enactInstruction (TalkTo target) = do
-  es <- allValidTargetedEntities target
-  case es of
-    [] -> logT $ "Don't know what " <> target <> " is"
-    es -> do
-      let e = head es
-      talkTo (e^.?entityID)
+  eM <- oneValidTargetedEntity target
+  case eM of
+    Nothing -> logT $ "Don't know what " <> target <> " is"
+    Just e ->
+      case e^.talkable of
+        Talkable -> talkTo (e^.?entityID)
+        Untalkable -> logT $ "Can't talk to " <> e^.?name
 
+-- TODO: Find a way for this to be MonadState
 talkTo :: (MonadState GameState m, MonadIO m) => EntityID -> m ()
 talkTo eID = do
   e <- getEntity eID
-  -- TODO: Vastly improve the conversation router.
-  -- TODO: Decouple this game logic by adding a convo-waiting response to the entity
-  case e^.?name of
-    "delivery man" -> do
-      incrementClock
-      logT "\"Fuckin' finally man! What took you? I gotta make hundreds more of these today to get mine!\""
-      logT "The delivery guy swipes a card, throwing open the hatch, slides a ration box through, and leaves hurriedly."
-      logT "The box tips over, spilling some of its contents."
-      -- The guy leaves, the hatch opens
-      removeAlert "Delivery"
-      removeEntity $ e^.?entityID
-      hatch <- getOneEntityByName SimpleObj "hatch"
-      modifyEntity (set openClosed $ Just Open) (hatch^.?entityID)
-
-      -- Can now get to the street
-      hallway <- getLocationByName "hallway"
-      street <- getLocationByName "street"
-      modifyEntity (set toNorth $ Just (street^.?entityID)) (hallway^.?entityID)
-
-      -- The hatch shuts after 2 more goes
-      oldTime <- gets (view clock)
-      addWatcher $ do
-        hatch <- getOneEntityByName SimpleObj "hatch"
-        newTime <- gets (view clock)
-        plunger <- getOneEntityByName SimpleObj "plunger"
-        when (hatch^.?openClosed == Open && newTime >= oldTime + 1 && (plunger^.locationID) /= (hatch ^.entityID)) $ do
-          addAlert "HatchShut" "The hatch on the front door has slammed shut, and won't reopen for another week."
-          modifyEntity (set openClosed $ Just Closed) (hatch^.?entityID)
-
-      -- The rations arrive
-      paperPlate <- mkSimpleObj "paper plate" ["plate", "paper plate"] (Just $ hallway^.?entityID)
-      modifyEntity (set storable Storable) (paperPlate^.?entityID)
-      desc paperPlate (const $ return "A paper plate, like we used to use at picnics in the before times.")
-
-      rationBox <- mkSimpleObj "ration box" ["ration box", "box"] (Just $ hallway^.?entityID)
-      desc rationBox (const $ return "A brown cardboard box.")
-      modifyEntity (set storable Storable) (rationBox^.?entityID)
-
-      rations <- mkSimpleObj "assorted rations" ["rations"] (Just $ hallway^.?entityID)
-      desc rations (const $ return "Assorted rations - pouches of dehydrated egg, carbohydrate gunge, that sort of thing.")
-      modifyEntity (set storable Storable) (rations^.?entityID)
-      modifyEntity (set edible Edible) (rations^.?entityID)
-
-    _ -> logT $ "Can't talk to " <> e^.?name
+  hs <- gets (view talkToHandlers)
+  case M.lookup eID hs of
+    Nothing -> logT $ (e^.?name) <> " isn't listening to you."
+    Just h -> h
 
 turnOn :: (MonadState GameState m, MonadIO m) => EntityID -> m ()
 turnOn eID = do
