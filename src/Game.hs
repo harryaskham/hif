@@ -843,20 +843,14 @@ enactInstruction (Drop target) = do
           logT $ e^.?name <> " cannot be dropped"
 
 enactInstruction (OpenI target) = do
-  l <- getPlayerLocation
-  es <- allValidTargetedEntities target
-  case es of
-    [] -> logT $ "No " <> target <> " to open."
-    es -> do
-      let e = head es
-      case e^.?name of
-        "front door" ->
-          logT "This hasn't been opened in years. Government mandate. You wouldn't want that air coming in, anyhow.\nYour voice would carry through it."
-        "hatch" ->
-          case e^.?openClosed of
-            Open -> logT "The hatch is already open"
-            Closed -> logT "This can only be opened from the outside for deliveries."
-        n -> logT $ n <> " cannot be opened"
+  eM <- oneValidTargetedEntity target
+  case eM of
+    Nothing -> logT $ "No " <> target <> " to open."
+    Just e -> do
+      hs <- gets (view openHandlers)
+      case M.lookup (e^.?entityID) hs of
+        Nothing -> logT $ (e^.?name) <> " cannot be opened"
+        Just h -> h (e^.?entityID)
 
 enactInstruction (Wear target) = do
   es <- allValidTargetedEntities target
@@ -940,7 +934,7 @@ enactInstruction Undo = do
 enactInstruction (Eat target) = do
   eM <- oneValidTargetedEntity target
   case eM of
-    Nothing -> logT $ "Can't find " <> target <> " is"
+    Nothing -> logT $ "Can't find " <> target
     Just e -> case e^.edible of
       Edible -> do
         hs <- gets (view eatHandlers)

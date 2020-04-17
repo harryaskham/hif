@@ -18,5 +18,4 @@ CLEANUP
 - Figure out MonadState again
 - Move some functionality outside of App
 - Descriptions, etc could have the real entity piped through
-- Eat handler
-- Open handler
+- Terse versions of all builder functions

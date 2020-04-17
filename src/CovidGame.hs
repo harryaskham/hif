@@ -292,3 +292,10 @@ buildCovidGame = do
     logT "You place the alarm clock into the bath, like a normal person would."
     modifyPlayer (over inventory (fmap (S.delete alarmID)))
     modifyEntity (set locationID $ Just bathID) alarmID)
+
+  addOpenHandler (frontDoor^.?entityID) (const $ logT "This hasn't been opened in years. Government mandate. You wouldn't want that air coming in, anyhow.\nYour voice would carry through it.")
+  addOpenHandler (hatch^.?entityID) (\eID -> do
+    e <- getEntity eID
+    case e^.?openClosed of
+      Open -> logT "The hatch is already open"
+      Closed -> logT "This can only be opened from the outside for deliveries.")
