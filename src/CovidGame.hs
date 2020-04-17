@@ -50,7 +50,6 @@ alarmWatcher = do
   e <- getOnlyEntity Alarm
   when ((e^.?onOff) == Off) $ removeAlert "Alarm"
 
-deliveryKnockWatcher :: (MonadState GameState m, MonadIO m) => m ()
 deliveryKnockWatcher = do
   time <- gets (view clock)
   deliveryMan <- getEntityByName Human "delivery man"
@@ -136,7 +135,6 @@ streetDesc eID = do
        $ "You emerge into the street for the first time in years. As you crawl out of the hatch, your fingers blister upon contact with the harsh and "
        <> "infected concrete. Your first free breath scours your throat and lungs - you are unable to take a second. Why did you go outside without wearing a mask?"
 
-streetEndgameWatcher :: (MonadState GameState m) => m ()
 streetEndgameWatcher = do
   l <- getPlayerLocation
   when (l^.?name == "street") setGameOver
@@ -149,7 +147,6 @@ bathDesc eID = do
               ]
   return $ T.unlines $ catMaybes lines
 
-alarmBathWatcher :: (MonadState GameState m, MonadIO m) => m ()
 alarmBathWatcher = do
   alarm <- getOnlyEntity Alarm
   bath <- getOneEntityByName SimpleObj "bath"
@@ -157,7 +154,6 @@ alarmBathWatcher = do
   when (not hasCheev && alarm^.locationID == bath^.entityID && bath^.?onOff == On)
     $ addAchievement $ Achievement "Big Wet Clock" "Why did you do this???"
 
-buildCovidGame :: (MonadState GameState m) => m ()
 buildCovidGame = do
   addAlert "Alarm" "Your alarm clock emits a shrill screech, signalling 05:00 - just half an hour until your shift starts."
   addWatcher alarmWatcher

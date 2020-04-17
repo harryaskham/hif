@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Game where
 
@@ -30,9 +31,6 @@ import Data.Char (isLetter, isDigit)
 -- Unsafely lens into a Maybe
 (^.?) :: Show s => s -> Getting (Maybe a) s (Maybe a) -> a
 a ^.? b = fromMaybe (error $ "Unsafe entity attribute access" ++ show a) (a ^. b)
-
-logT :: (MonadIO m) => Text -> m ()
-logT = liftIO . TIO.putStrLn
 
 data EntityType = Player
                 | Human
@@ -148,51 +146,37 @@ type Alert = Text
 type AchievementID = Text
 data Achievement = Achievement AchievementID Text
 
-data GameState where
+type Stack st = StateT st IO
+data GameState =
   GameState
-    :: (MonadState GameState m, MonadIO m)
-    => { _entities :: Map EntityID Entity
-       , _descriptions :: Map EntityID (EntityID -> m Text)
-       , _clock :: Integer
-       , _alerts :: Map AlertID Alert
-       , _watchers :: [m ()]
-       , _history :: [GameState]
-       , _achievements :: Map AchievementID Achievement
-       , _gameOver :: Bool
-       , _talkToHandlers :: Map EntityID (m ())
-       } -> GameState
+    { _entities :: Map EntityID Entity
+    , _descriptions :: Map EntityID (EntityID -> Stack GameState Text)
+    , _clock :: Integer
+    , _alerts :: Map AlertID Alert
+    , _watchers :: [Stack GameState ()]
+    , _history :: [GameState]
+    , _achievements :: Map AchievementID Achievement
+    , _gameOver :: Bool
+    , _talkToHandlers :: Map EntityID (Stack GameState ())
+    }
 makeLenses ''GameState
 
 -- Overall stack for the App
-type App = StateT GameState IO
+type App = Stack GameState
+
+logT :: Text -> App ()
+logT = liftIO . TIO.putStrLn
 
 type Description = EntityID -> App Text
 type Watcher = App ()
 type TalkToHandler = App ()
 
--- Need manual lenses now
-descriptions ::  Lens' GameState (Map EntityID (EntityID -> m Text))
-descriptions = undefined
-  {-
-descriptions = lens getDescriptions (\st newDescriptions -> setDescriptions newDescriptions st)
-  where
-    getDescriptions (GameState {..}) = descriptions
-    setDescriptions ds (GameState {..}) = GameState { _descriptions=ds, ..}
-    -}
-
-watchers :: (MonadState GameState m, MonadIO m) => Lens' GameState ([m ()])
-watchers = undefined
-
-talkToHandlers :: (MonadState GameState m, MonadIO m) => Lens' GameState (Map EntityID (m ()))
-talkToHandlers = undefined
-
-
 -- Add a watcher to the game checking for things. Run every turn.
-addWatcher :: (MonadState GameState m) => Watcher -> m ()
+addWatcher :: Watcher -> App ()
 addWatcher w = modify $ \s -> s & watchers %~ (w:)
 
 -- Add a handler run when talking to an entity
-addTalkToHandler :: (MonadState GameState m) => EntityID -> TalkToHandler -> m ()
+addTalkToHandler :: EntityID -> TalkToHandler -> App ()
 addTalkToHandler eID h = modify $ \s -> s & talkToHandlers %~ M.insert eID h
 
 -- Run all watchers
@@ -206,12 +190,12 @@ runWatchers = do
         _ <- w
         go ws
 
-addAchievement :: (MonadState GameState m, MonadIO m) => Achievement -> m ()
+addAchievement :: Achievement -> App ()
 addAchievement a@(Achievement aID aContent) = do
   logT $ "\n***ACHIEVEMENT UNLOCKED***\n" <> aID <> "\n" <> aContent
   modify (\s -> s & achievements %~ M.insert aID a)
 
-hasAchievement :: (MonadState GameState m) => AchievementID -> m Bool
+hasAchievement :: AchievementID -> App Bool
 hasAchievement aID = do
   as <- gets (view achievements)
   return $ M.member aID as
@@ -254,27 +238,27 @@ data Instruction = Go Direction
                  | Say Text
                  deriving (Eq)
 
-getAllEntities :: (MonadState GameState m) => EntityType -> m [Entity]
+getAllEntities :: EntityType -> App [Entity]
 getAllEntities et = do
   es <- gets (view entities)
   return [snd e | e <- M.toList es, entityType (snd e) == et]
 
 -- Unsafely get the entity with the given ID
-getEntity :: (MonadState GameState m) => EntityID -> m Entity
+getEntity :: EntityID -> App Entity
 getEntity eID = do
   es <- gets (view entities)
   let (Just l) = M.lookup eID es
   return l
 
-getEntities :: (MonadState GameState m) => [EntityID] -> m [Entity]
+getEntities :: [EntityID] -> App [Entity]
 getEntities = traverse getEntity
 
-getLocationByName :: (MonadState GameState m) => Name -> m Entity
+getLocationByName :: Name -> App Entity
 getLocationByName n = do
   es <- getAllEntities Location
   return $ head [e | e <- es, e^.name == Just n]
 
-getEntityByName :: (MonadState GameState m) => EntityType -> Name -> m (Maybe Entity)
+getEntityByName :: EntityType -> Name -> App (Maybe Entity)
 getEntityByName et n = do
   es <- getAllEntities et
   let matches = [e | e <- es, e^.name == Just n]
@@ -284,13 +268,13 @@ getEntityByName et n = do
     _ -> error $ "More than one entity named " ++ T.unpack n
 
 -- Unsafe version of the above
-getOneEntityByName :: (MonadState GameState m) => EntityType -> Name -> m Entity
+getOneEntityByName :: EntityType -> Name -> App Entity
 getOneEntityByName et n = do
   eM <- getEntityByName et n
   let (Just e) = eM
   return e
 
-getOnlyEntity :: (MonadState GameState m) => EntityType -> m Entity
+getOnlyEntity :: EntityType -> App Entity
 getOnlyEntity et = do
   es <- getAllEntities et
   case es of
@@ -301,7 +285,7 @@ getOnlyEntity et = do
 -- Get all entities at a given location.
 -- Should usually not include the player itself
 -- Also recursively gets all entities inside all other things...
-getEntitiesAt :: (MonadState GameState m) => EntityID -> m [Entity]
+getEntitiesAt :: EntityID -> App [Entity]
 getEntitiesAt lID = do
   es <- gets (view entities)
   let esHere = [e | e <- snd <$> M.toList es, (e^.locationID) == Just lID]
@@ -310,14 +294,14 @@ getEntitiesAt lID = do
   return $ esHere ++ concat hiddenEs
 
 -- Deletes an entity.
-removeEntity :: (MonadState GameState m) => EntityID -> m ()
+removeEntity :: EntityID -> App ()
 removeEntity eID = modify $ \s -> s & entities %~ M.delete eID
 
-setGameOver :: (MonadState GameState m) => m ()
+setGameOver :: App ()
 setGameOver = modify $ set gameOver True
 
 -- Non-thread-safe way to get a new entity ID.
-newID :: (MonadState GameState m) => EntityType -> m EntityID
+newID :: EntityType -> App EntityID
 newID et = do
   es <- getAllEntities et
   return $ EntityID et (fromIntegral (length es) + 1)
@@ -335,7 +319,7 @@ mkGameState = GameState { _entities=M.empty
                         , _gameOver=False
                         }
 
-mkSimpleObj :: (MonadState GameState m) => Name -> [Target] -> Maybe EntityID -> m Entity
+mkSimpleObj :: Name -> [Target] -> Maybe EntityID -> App Entity
 mkSimpleObj name targets locationID = do
   objID <- newID SimpleObj
   let obj = def { _entityID=Just objID
@@ -346,7 +330,7 @@ mkSimpleObj name targets locationID = do
   registerEntity obj
   return obj
 
-mkPlayer :: (MonadState GameState m) => Name -> EntityID -> m Entity
+mkPlayer :: Name -> EntityID -> App Entity
 mkPlayer name locationID = do
   playerID <- newID Player
   let player = def { _entityID=Just playerID
@@ -359,7 +343,7 @@ mkPlayer name locationID = do
   registerEntity player
   return player
 
-mkHuman :: (MonadState GameState m) => Name -> [Target] -> EntityID -> m Entity
+mkHuman :: Name -> [Target] -> EntityID -> App Entity
 mkHuman name targets locationID = do
   humanID <- newID Human
   let human = def { _entityID=Just humanID
@@ -370,7 +354,7 @@ mkHuman name targets locationID = do
   registerEntity human
   return human
 
-mkLocation :: (MonadState GameState m) => Name -> m Entity
+mkLocation :: Name -> App Entity
 mkLocation name = do
   locationID <- newID Location
   let location = def { _entityID=Just locationID
@@ -380,7 +364,7 @@ mkLocation name = do
   registerEntity location
   return location
 
-mkRock :: (MonadState GameState m) => EntityID -> m Entity
+mkRock :: EntityID -> App Entity
 mkRock locationID = do
   rockID <- newID Rock
   let rock = def { _entityID=Just rockID
@@ -392,7 +376,7 @@ mkRock locationID = do
   registerEntity rock
   return rock
 
-mkRadio :: (MonadState GameState m) => EntityID -> m Entity
+mkRadio :: EntityID -> App Entity
 mkRadio locationID = do
   radioID <- newID Radio
   let radio = def { _entityID=Just radioID
@@ -404,7 +388,7 @@ mkRadio locationID = do
   registerEntity radio
   return radio
 
-mkAlarm :: (MonadState GameState m) => EntityID -> m Entity
+mkAlarm :: EntityID -> App Entity
 mkAlarm locationID = do
   alarmID <- newID Alarm
   let alarm = def { _entityID=Just alarmID
@@ -417,7 +401,7 @@ mkAlarm locationID = do
   registerEntity alarm
   return alarm
 
-mkHairband :: (MonadState GameState m) => EntityID -> m Entity
+mkHairband :: EntityID -> App Entity
 mkHairband locationID = do
   hairbandID <- newID HairBand
   let hairband = def { _entityID=Just hairbandID
@@ -431,13 +415,13 @@ mkHairband locationID = do
   return hairband
   
 -- Write an entity back to the register.
-registerEntity :: (MonadState GameState m) => Entity -> m ()
+registerEntity :: Entity -> App ()
 registerEntity e = do
   es <- gets (view entities)
   modify $ \s -> s & entities %~ M.insert (e^.?entityID) e
 
 -- Modify the given entity persisted in the state.
-modifyEntity :: (MonadState GameState m) => (Entity -> Entity) -> EntityID -> m ()
+modifyEntity :: (Entity -> Entity) -> EntityID -> App ()
 modifyEntity f eID = do
   es <- gets (view entities)
   case M.lookup eID es of
@@ -445,22 +429,22 @@ modifyEntity f eID = do
     Nothing -> return ()
 
 -- Register the given description function with the entity
-addDesc :: (MonadState GameState m) => EntityID -> Description -> m ()
+addDesc :: EntityID -> (EntityID -> App Text) -> App ()
 addDesc eID d = modify $ \s -> s & descriptions %~ M.insert eID d
 
 -- Quick helper
-desc e d = addDesc (e^.?entityID) d
+desc e = addDesc (e^.?entityID)
 
 -- Adds a given alert.
-addAlert :: (MonadState GameState m) => AlertID -> Alert -> m ()
+addAlert :: AlertID -> Alert -> App ()
 addAlert aID a = modify $ \s -> s & alerts %~ M.insert aID a
 
 -- Removes the given alert.
-removeAlert :: (MonadState GameState m) => AlertID -> m ()
+removeAlert :: AlertID -> App ()
 removeAlert aID = modify $ \s -> s & alerts %~ M.delete aID
 
 -- Get the single player entity
-getPlayer :: (MonadState GameState m) => m Entity
+getPlayer :: App Entity
 getPlayer = do
   es <- getAllEntities Player
   case es of
@@ -469,13 +453,13 @@ getPlayer = do
     _ -> error "Multiple Players defined"
 
 -- Get the location of the player
-getPlayerLocation :: (MonadState GameState m) => m Entity
+getPlayerLocation :: App Entity
 getPlayerLocation = do
   p <- getPlayer
   getEntity $ p^.?locationID
 
 -- Gets the compiled description for the given entity
-getDescription :: (MonadState GameState m, MonadIO m) => EntityID -> m Text
+getDescription :: EntityID -> App Text
 getDescription eID = do
   ds <- gets (view descriptions)
   let d = fromMaybe (error $ "No desc for " ++ show eID) $ M.lookup eID ds
@@ -484,7 +468,7 @@ getDescription eID = do
 -- TODO: Smarter location descriptions that build the things into the text.
 -- Description should be a function that builds text, rather than just text.
 -- So should name. These can be consts for now.
-describeCurrentTurn :: (MonadState GameState m, MonadIO m) => m Text
+describeCurrentTurn :: App Text
 describeCurrentTurn = do
   st <- get
   p <- getPlayer
@@ -526,7 +510,7 @@ describeCurrentTurn = do
 data InstructionError = InstructionError
 
 -- Handle input, potentially running an instruction and modifying game state.
-runInstruction :: (MonadState GameState m, MonadIO m) => Text -> m (Either InstructionError Instruction)
+runInstruction :: Text -> App (Either InstructionError Instruction)
 runInstruction instructionText =
   case parseInstruction instructionText of
     (Just i) -> do
@@ -742,11 +726,11 @@ lensForDir DirUp = toUp
 lensForDir DirDown = toDown
 
 -- Increment game time by one.
-incrementClock :: MonadState GameState m => m ()
+incrementClock :: MonadState GameState App => App ()
 incrementClock = modify $ over clock (+1)
 
 -- Get all entities at the player's location, including contained things.
-getEntitiesNearPlayer :: (MonadState GameState m) => m [Entity]
+getEntitiesNearPlayer :: App [Entity]
 getEntitiesNearPlayer = do
   p <- getPlayer
   getEntitiesAt (p^.?locationID)
@@ -755,11 +739,11 @@ filterByTarget :: Target -> [Entity] -> [Entity]
 filterByTarget t = filter (\e -> t `S.member` (e^.?targets))
 
 -- All non-held items near the player
-getTargetedEntitiesNearPlayer :: (MonadState GameState m) => Target -> m [Entity]
+getTargetedEntitiesNearPlayer :: Target -> App [Entity]
 getTargetedEntitiesNearPlayer t = filterByTarget t <$> getEntitiesNearPlayer
 
 -- All items either near player or in inventory matching the given target
-allValidTargetedEntities :: (MonadState GameState m) => Target -> m [Entity]
+allValidTargetedEntities :: Target -> App [Entity]
 allValidTargetedEntities t = do
   es1 <- getTargetedEntitiesNearPlayer t
   es2 <- filterInventoryByTarget t
@@ -767,30 +751,30 @@ allValidTargetedEntities t = do
 
 -- Gets a single arbitrary match to the given target.
 -- Nothing if it doesn't match or can't be found.
-oneValidTargetedEntity :: (MonadState GameState m) => Target -> m (Maybe Entity)
+oneValidTargetedEntity :: Target -> App (Maybe Entity)
 oneValidTargetedEntity t = do
   es <- allValidTargetedEntities t
   return $ SL.head es
 
-getInventoryEntities :: (MonadState GameState m) => m [Entity]
+getInventoryEntities :: App [Entity]
 getInventoryEntities = do
   p <- getPlayer
   traverse getEntity (S.toList $ p^.?inventory)
 
-inPlayerInventory :: (MonadState GameState m) => EntityID -> m Bool
+inPlayerInventory :: EntityID -> App Bool
 inPlayerInventory eID = do
   p <- getPlayer
   return $ eID `S.member` (p^.?inventory)
 
-getPlayerWornEntities :: (MonadState GameState m) => m [Entity]
+getPlayerWornEntities :: App [Entity]
 getPlayerWornEntities = do
   p <- getPlayer
   traverse getEntity (S.toList $ p^.?wearing)
 
-filterInventoryByTarget :: (MonadState GameState m) => Target -> m [Entity]
+filterInventoryByTarget :: Target -> App [Entity]
 filterInventoryByTarget t = filterByTarget t <$> getInventoryEntities
 
-enactInstruction :: (MonadState GameState m, MonadIO m) => Instruction -> m ()
+enactInstruction :: Instruction -> App ()
 enactInstruction (Go dir) = do
   l <- getPlayerLocation
   case l^.lensForDir dir of
@@ -996,7 +980,7 @@ enactInstruction (TalkTo target) = do
         Untalkable -> logT $ "Can't talk to " <> e^.?name
 
 -- TODO: Find a way for this to be MonadState
-talkTo :: (MonadState GameState m, MonadIO m) => EntityID -> m ()
+talkTo :: EntityID -> App ()
 talkTo eID = do
   e <- getEntity eID
   hs <- gets (view talkToHandlers)
@@ -1004,7 +988,7 @@ talkTo eID = do
     Nothing -> logT $ (e^.?name) <> " isn't listening to you."
     Just h -> h
 
-turnOn :: (MonadState GameState m, MonadIO m) => EntityID -> m ()
+turnOn :: EntityID -> App ()
 turnOn eID = do
   e <- getEntity eID
   if isNothing (e^.onOff)
@@ -1025,7 +1009,7 @@ turnOn eID = do
                       n -> logT $ "Can't turn on " <> n
        _ -> logT "Nothing happens"
 
-turnOff :: (MonadState GameState m, MonadIO m) => EntityID -> m ()
+turnOff :: EntityID -> App ()
 turnOff eID = do
   e <- getEntity eID
   if isNothing (e^.onOff)
@@ -1051,7 +1035,7 @@ turnOff eID = do
                       n -> logT $ "Can't turn off " <> n
        _ -> logT "Nothing happens"
 
-combine :: (MonadState GameState m, MonadIO m) => EntityID -> EntityID -> m ()
+combine :: EntityID -> EntityID -> App ()
 combine eID1 eID2 = do
   e1 <- getEntity eID1
   e2 <- getEntity eID2

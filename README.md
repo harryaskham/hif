@@ -22,6 +22,5 @@ Remove specificity of things
 - TurnOn/Off etc handlers attached to the things themselves
 - Split engine and game into separate files
 - Lots of duplication in enactInstruction - reduce this down
--
-- need to write the lenses
-- figure out the quantification thing
+- Figure out MonadState again
+- Move some functionality outside of App
