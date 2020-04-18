@@ -55,6 +55,7 @@ main = hspec do
         , "n"
         ]
         [ gets (view gameOver) ]
+
     it "gets the bad ending" do
       checkPreds
         buildCovidGame
@@ -76,7 +77,7 @@ main = hspec do
         , hasAchievement "Simon Says"
         ]
 
-    it "gets big wet clock" do
+    it "gets wet clock cheev" do
       checkPreds
         buildCovidGame
         [ "get clock"
@@ -86,3 +87,16 @@ main = hspec do
         , "turn on bath"
         ]
         [ hasAchievement "Big Wet Clock" ]
+
+    it "gets ration cheev" do
+      checkPreds
+        buildCovidGame
+        [ "n"
+        , "wait"
+        , "wait"
+        , "wait"
+        , "wait"
+        , "talk to man"
+        , "eat rations"
+        ]
+        [ hasAchievement "Eyes Bigger Than Belly" ]
