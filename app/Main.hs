@@ -6,6 +6,7 @@ import Tools
 import EntityType
 import GameState
 import CovidGame
+import FourthGame
 import Engine
 import Handler
 import Entity
@@ -21,7 +22,8 @@ import System.IO
 
 runApp :: App ()
 runApp = do
-  buildCovidGame
+  --buildCovidGame
+  buildFourthGame
   logT =<< describeCurrentTurn
   loop
   where
@@ -31,7 +33,6 @@ runApp = do
       isOver <- gets (view gameOver)
       if isOver
          then do
-           logT "END OF STORY SO FAR"
            flushLog
            _ <- liftIO getLine
            return ()
