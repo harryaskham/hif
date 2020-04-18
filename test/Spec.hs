@@ -7,7 +7,6 @@ import EntityType
 import GameState
 import CovidGame
 import Engine
-import Handler
 import Entity
 import Instruction
 

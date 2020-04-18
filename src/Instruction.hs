@@ -425,7 +425,6 @@ enactInstruction Inventory = do
 enactInstruction Wait = do
   incrementClock
   logT "You wait idly."
-  enactInstruction Look
 
 enactInstruction (TurnOn target) = do
   eM <- oneValidTargetedEntity target

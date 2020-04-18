@@ -22,11 +22,11 @@ import System.IO
 runApp :: App ()
 runApp = do
   buildCovidGame
-  -- One initial description before the rest are triggered by moving
   logT =<< describeCurrentTurn
   loop
   where
     loop = do
+      flushLog
       -- End game if it's over
       isOver <- gets (view gameOver)
       if isOver

@@ -56,6 +56,7 @@ data GameState =
     , _combinationHandlers :: Map (EntityID, EntityID) (Entity -> Entity -> Stack GameState ())
     , _eatHandlers :: Map EntityID (Entity -> Stack GameState ())
     , _openHandlers :: Map EntityID (Entity -> Stack GameState ())
+    , _outLines :: [Text]
     }
 makeLenses ''GameState
 
@@ -76,6 +77,7 @@ mkGameState = GameState { _entities=M.empty
                         , _combinationHandlers=M.empty
                         , _eatHandlers=M.empty
                         , _openHandlers=M.empty
+                        , _outLines=[]
                         }
 
 -- Instantiate MTL stack for game
@@ -93,5 +95,12 @@ type EatHandler = Entity -> App ()
 type OpenHandler = Entity -> App ()
 
 -- Output text to the screen within the Monad stack
+-- TODO: This would work better with Endo or RState
 logT :: Text -> App ()
-logT = liftIO . TIO.putStrLn
+logT t = modify $ over outLines (t:)
+
+flushLog :: App ()
+flushLog = do
+  ls <- gets (view outLines)
+  mapM_ (liftIO . TIO.putStrLn) (reverse ls)
+  modify $ set outLines []
