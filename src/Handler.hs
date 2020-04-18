@@ -10,6 +10,7 @@ module Handler where
 import Tools
 import EntityType
 import GameState
+import Entity
 
 import Control.Lens
 import Control.Monad.State
@@ -32,12 +33,8 @@ import Control.Monad (void)
 import Data.Char (isLetter, isDigit)
 
 -- Register the given description function with the entity
-addDesc :: EntityID -> Description -> App ()
-addDesc eID d = modify $ \s -> s & descriptions %~ M.insert eID d
-
--- Quick helper to avoid ID usage
-desc :: Entity -> Description -> App ()
-desc e = addDesc (e^.?entityID)
+addDesc :: (HasID e) => e -> Description -> App ()
+addDesc e d = modify $ \s -> s & descriptions %~ M.insert (getID e) d
 
 addWatcher :: Watcher -> App ()
 addWatcher w = modify $ over watchers (w:)
@@ -52,25 +49,27 @@ runWatchers = do
         _ <- w
         go ws
 
-addTalkToHandler :: EntityID -> TalkToHandler -> App ()
-addTalkToHandler eID h = modify $ over talkToHandlers (M.insert eID h)
+addTalkToHandler :: (HasID e) => e -> TalkToHandler -> App ()
+addTalkToHandler e h = modify $ over talkToHandlers (M.insert (getID e) h)
 
-addEatHandler :: EntityID -> EatHandler -> App ()
-addEatHandler eID h = modify $ over eatHandlers (M.insert eID h)
+addEatHandler :: (HasID e) => e -> EatHandler -> App ()
+addEatHandler e h = modify $ over eatHandlers (M.insert (getID e) h)
 
-addOpenHandler :: EntityID -> OpenHandler -> App ()
-addOpenHandler eID h = modify $ over openHandlers (M.insert eID h)
+addOpenHandler :: (HasID e) => e -> OpenHandler -> App ()
+addOpenHandler e h = modify $ over openHandlers (M.insert (getID e) h)
 
 addSayHandler :: SayHandler -> App ()
 addSayHandler h = modify $ over sayHandlers (h:)
 
-addTurnOnHandler :: EntityID -> TurnOnHandler -> App ()
-addTurnOnHandler eID h = modify $ over turnOnHandlers (M.insert eID h)
+addTurnOnHandler :: (HasID e) => e -> TurnOnHandler -> App ()
+addTurnOnHandler e h = modify $ over turnOnHandlers (M.insert (getID e) h)
 
-addTurnOffHandler :: EntityID -> TurnOffHandler -> App ()
-addTurnOffHandler eID h = modify $ over turnOffHandlers (M.insert eID h)
+addTurnOffHandler :: (HasID e) => e -> TurnOffHandler -> App ()
+addTurnOffHandler e h = modify $ over turnOffHandlers (M.insert (getID e) h)
 
-addCombinationHandler :: EntityID -> EntityID -> CombinationHandler -> App ()
-addCombinationHandler eID1 eID2 h = do
+addCombinationHandler :: (HasID e) => e -> e -> CombinationHandler -> App ()
+addCombinationHandler e1 e2 h = do
+  let eID1 = getID e1
+      eID2 = getID e2
   modify $ over combinationHandlers (M.insert (eID1, eID2) h)
   modify $ over combinationHandlers (M.insert (eID2, eID1) (flip h))

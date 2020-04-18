@@ -62,7 +62,7 @@ deliveryKnockWatcher = do
     hallway <- getLocationByName "hallway"
     deliveryMan <- mkSimpleObj "delivery man" ["man", "delivery", "delivery man"] (Just $ hallway^.?entityID)
     modifyEntity (set talkable Talkable) (deliveryMan^.?entityID)
-    desc deliveryMan (const $ return "You can't see him too well through the frosted glass, but you can hear him okay")
+    addDesc deliveryMan (const $ return "You can't see him too well through the frosted glass, but you can hear him okay")
     addTalkToHandler (deliveryMan^.?entityID) $ do
       incrementClock
       logT "\"Fuckin' finally man! What took you? I gotta make hundreds more of these today to get mine!\""
@@ -93,15 +93,15 @@ deliveryKnockWatcher = do
       -- The rations arrive
       paperPlate <- mkSimpleObj "paper plate" ["plate", "paper plate"] (Just $ hallway^.?entityID)
       modifyEntity (set storable Storable) (paperPlate^.?entityID)
-      desc paperPlate (const $ return "A paper plate, like we used to use at picnics in the before times.")
+      addDesc paperPlate (const $ return "A paper plate, like we used to use at picnics in the before times.")
 
       rationBox <- mkSimpleObj "ration box" ["ration box", "box"] (Just $ hallway^.?entityID)
-      desc rationBox (const $ return "A brown cardboard box.")
+      addDesc rationBox (const $ return "A brown cardboard box.")
       modifyEntity (set storable Storable) (rationBox^.?entityID)
       addOpenHandler (rationBox^.?entityID) (const $ logT "The box tipped over and lays open on its side")
 
       rations <- mkSimpleObj "assorted rations" ["rations"] (Just $ hallway^.?entityID)
-      desc rations (const $ return "Assorted rations - pouches of dehydrated egg, carbohydrate gunge, that sort of thing.")
+      addDesc rations (const $ return "Assorted rations - pouches of dehydrated egg, carbohydrate gunge, that sort of thing.")
       modifyEntity (set storable Storable) (rations^.?entityID)
       modifyEntity (set edible Edible) (rations^.?entityID)
       addEatHandler (rations^.?entityID) (\eID -> do
@@ -118,7 +118,7 @@ deliveryKnockWatcher = do
         removeEntity hairbandID
         mask <- mkSimpleObj "makeshift facemask" ["facemask", "mask"] Nothing
         modifyEntity (set wearable Wearable) (mask^.?entityID)
-        desc mask (const $ return "A super-safe, military grade, virus-repellant face mask.")
+        addDesc mask (const $ return "A super-safe, military grade, virus-repellant face mask.")
         addToInventory $ mask^.?entityID)
 
       -- Finally things changed so lets print
@@ -185,21 +185,21 @@ buildCovidGame = do
   addWatcher deliveryKnockWatcher
 
   bedroom <- mkLocation "bedroom"
-  desc bedroom bedroomDesc
+  addDesc bedroom bedroomDesc
 
   bed <- mkSimpleObj "bed" ["bed"] (Just $ bedroom^.?entityID)
-  desc bed (const $ return "Yellowed sheets last changed months ago cover a parabolic mattress. You want back in so, so badly.")
+  addDesc bed (const $ return "Yellowed sheets last changed months ago cover a parabolic mattress. You want back in so, so badly.")
 
   hairband <- mkSimpleObj "hairband" ["hairband", "band", "headband"] (Just $ bedroom^.?entityID)
   modifyEntity (set storable Storable) (hairband^.?entityID)
-  desc hairband (const $ return "A faded elasticated hairband. Your head's big but it looks like it'd get around it.")
+  addDesc hairband (const $ return "A faded elasticated hairband. Your head's big but it looks like it'd get around it.")
 
   player <- mkPlayer "yourself" $ bedroom^.?entityID
-  desc player (const $ return "You look like shit. Beard well past shoulder-length yet still patchy after all this time.")
+  addDesc player (const $ return "You look like shit. Beard well past shoulder-length yet still patchy after all this time.")
 
   radio <- mkSimpleObj "radio" ["radio"] (Just $ bedroom^.?entityID)
   modifyEntity (set onOff $ Just On) (radio^.?entityID)
-  desc radio radioDesc
+  addDesc radio radioDesc
   addTurnOnHandler (radio^.?entityID) (\eID -> do
     e <- getEntity eID
     case e^.?onOff of
@@ -218,7 +218,7 @@ buildCovidGame = do
   alarm <- mkSimpleObj "alarm clock" ["alarm", "clock", "alarm clock"] (Just $ bedroom^.?entityID)
   modifyEntity (set storable Storable) (alarm^.?entityID)
   modifyEntity (set onOff $ Just On) (alarm^.?entityID)
-  desc alarm alarmDesc
+  addDesc alarm alarmDesc
   addTurnOnHandler (alarm^.?entityID) (const $ logT "You can't turn an alarm on at will, man. Time only goes one way.")
   addTurnOffHandler (alarm^.?entityID) (\eID -> do
     e <- getEntity eID
@@ -229,33 +229,33 @@ buildCovidGame = do
         modifyEntity (set onOff $ Just Off) (e^.?entityID))
 
   hallway <- mkLocation "hallway"
-  desc hallway hallwayDesc
+  addDesc hallway hallwayDesc
   modifyEntity (set toNorth $ hallway^.entityID) (bedroom^.?entityID)
   modifyEntity (set toSouth $ bedroom^.entityID) (hallway^.?entityID)
 
   photos <- mkSimpleObj "photos" ["photo", "photos"] (Just $ hallway ^.?entityID)
-  desc photos (const $ return "There's one of your parents looking happy a decade before you were born, and another of you nude in a public fountain chasing pigeons.")
+  addDesc photos (const $ return "There's one of your parents looking happy a decade before you were born, and another of you nude in a public fountain chasing pigeons.")
   frontDoor <- mkSimpleObj "front door" ["door", "front door"] (Just $ hallway ^.?entityID)
-  desc frontDoor (const $ return "This used to be your way to the outside world. Now it only yawns, once a week, to receive a box of rations through the hatch in the lower half.")
+  addDesc frontDoor (const $ return "This used to be your way to the outside world. Now it only yawns, once a week, to receive a box of rations through the hatch in the lower half.")
   hatch <- mkSimpleObj "hatch" ["hatch", "slot"] (Just $ hallway^.?entityID)
-  desc hatch hatchDesc
+  addDesc hatch hatchDesc
   modifyEntity (set openClosed $ Just Closed) (hatch^.?entityID)
 
   street <- mkLocation "street"
-  desc street streetDesc
+  addDesc street streetDesc
 
   bathroom <- mkLocation "bathroom"
   modifyEntity (set toEast $ bathroom^.entityID) (hallway^.?entityID)
   modifyEntity (set toWest $ hallway^.entityID) (bathroom^.?entityID)
-  desc bathroom (const $ return "You certainly haven't been following the sterilisation guidelines in here.\nAn exotic mould snakes down from the ceiling.\nYou catch a glimpse of yourself in the mirror and recoil in disgust.")
+  addDesc bathroom (const $ return "You certainly haven't been following the sterilisation guidelines in here.\nAn exotic mould snakes down from the ceiling.\nYou catch a glimpse of yourself in the mirror and recoil in disgust.")
 
   plunger <- mkSimpleObj "plunger" ["plunger"] (Just $ bathroom^.?entityID)
-  desc plunger (const $ return "A well-used, not-so-well-cleaned toilet plunger. It's about the width of that hatch out there.")
+  addDesc plunger (const $ return "A well-used, not-so-well-cleaned toilet plunger. It's about the width of that hatch out there.")
   modifyEntity (set storable Storable) (plunger^.?entityID)
 
   bath <- mkSimpleObj "bath" ["bath", "tub", "bathtub", "tap", "taps"] (Just $ bathroom^.?entityID)
   modifyEntity (set onOff $ Just Off) (bath^.?entityID)
-  desc bath bathDesc
+  addDesc bath bathDesc
   addTurnOnHandler (bath^.?entityID) (\eID -> do
     logT "You turn the rusty taps, and water floods the rotten tub. It quickly reaches the overflow."
     modifyEntity (set onOff $ Just On) eID)
@@ -273,7 +273,7 @@ buildCovidGame = do
       addAchievement $ Achievement "Simon Says" "Do you do everything you hear on the radio?"
       setGameOver
       ap <- mkLocation "Astral Plane"
-      desc ap (const $ return
+      addDesc ap (const $ return
         $ "As you recite the mantra on the radio, you lose touch with your corporeal body.\n"
         <> "You feel yourself becoming one with the simulacrum as you continue your chant.\n"
         <> "Hours pass - then days - and your lips chap with thirst. Still you chant.\n"

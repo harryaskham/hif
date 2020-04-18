@@ -31,6 +31,16 @@ import Text.Parsec.String (Parser)
 import Control.Monad (void)
 import Data.Char (isLetter, isDigit)
 
+-- Class that lets us supply either the entity or the ID
+class HasID a where
+  getID :: a -> EntityID
+
+instance HasID EntityID where
+  getID = id
+
+instance HasID Entity where
+  getID = (^.?entityID)
+
 -- Non-thread-safe way to get a new entity ID.
 newID :: EntityType -> App EntityID
 newID et = do
@@ -78,11 +88,11 @@ mkLocation name = do
   return location
 
 -- Modify the given entity persisted in the state.
-modifyEntity :: (Entity -> Entity) -> EntityID -> App ()
-modifyEntity f eID = do
+modifyEntity :: (HasID e) => (Entity -> Entity) -> e -> App ()
+modifyEntity f e = do
   es <- gets (view entities)
-  case M.lookup eID es of
-    Just e -> modify $ \s -> s & entities %~ M.insert eID (f e)
+  case M.lookup (getID e) es of
+    Just e -> modify $ \s -> s & entities %~ M.insert (getID e) (f e)
     Nothing -> return ()
 
 modifyPlayer :: (Entity -> Entity) -> App ()
@@ -138,8 +148,9 @@ getOnlyEntity et = do
 -- Get all entities at a given location.
 -- Should usually not include the player itself
 -- Also recursively gets all entities inside all other things...
-getEntitiesAt :: EntityID -> App [Entity]
-getEntitiesAt lID = do
+getEntitiesAt :: (HasID l) => l -> App [Entity]
+getEntitiesAt l = do
+  let lID = getID l
   es <- gets (view entities)
   let esHere = [e | e <- snd <$> M.toList es, (e^.locationID) == Just lID]
       eIDs = (^.?entityID) <$> esHere
@@ -147,8 +158,9 @@ getEntitiesAt lID = do
   return $ esHere ++ concat hiddenEs
 
 -- Deletes an entity.
-removeEntity :: EntityID -> App ()
-removeEntity eID = do
+removeEntity :: (HasID e) => e -> App ()
+removeEntity e = do
+  let eID = getID e
   modifyPlayer $ over wearing (fmap $ S.delete eID)
   removeFromInventory eID
   modify $ \s -> s & entities %~ M.delete eID
@@ -191,24 +203,27 @@ getInventoryEntities = do
   p <- getPlayer
   traverse getEntity (S.toList $ p^.?inventory)
 
-inPlayerInventory :: EntityID -> App Bool
-inPlayerInventory eID = do
+inPlayerInventory :: (HasID e) => e -> App Bool
+inPlayerInventory e = do
   p <- getPlayer
-  return $ eID `S.member` (p^.?inventory)
+  return $ getID e `S.member` (p^.?inventory)
 
-moveToInventory :: EntityID -> App ()
-moveToInventory eID = do
+moveToInventory :: (HasID e) => e -> App ()
+moveToInventory e = do
+  let eID = getID e
   modifyEntity (set locationID Nothing) eID
   addToInventory eID
 
-addToInventory :: EntityID -> App ()
-addToInventory eID = modifyPlayer (over inventory $ fmap (S.insert eID))
+addToInventory :: (HasID e) => e -> App ()
+addToInventory e = modifyPlayer (over inventory $ fmap (S.insert $ getID e))
 
-removeFromInventory :: EntityID -> App ()
-removeFromInventory eID = modifyPlayer (over inventory $ fmap (S.delete eID))
+removeFromInventory :: (HasID e) => e -> App ()
+removeFromInventory e = modifyPlayer (over inventory $ fmap (S.delete $ getID e))
 
-moveFromInventory :: EntityID -> EntityID -> App ()
-moveFromInventory eID lID = do
+moveFromInventory :: (HasID e, HasID l) => e -> l -> App ()
+moveFromInventory e l = do
+  let eID = getID e
+      lID = getID l
   removeFromInventory eID
   modifyEntity (set locationID $ Just lID) eID
 
@@ -236,8 +251,9 @@ getPlayerLocation = do
   getEntity $ p^.?locationID
 
 -- Gets the compiled description for the given entity
-getDescription :: EntityID -> App Text
-getDescription eID = do
+getDescription :: (HasID e) => e -> App Text
+getDescription e = do
+  let eID = getID e
   ds <- gets (view descriptions)
   let d = fromMaybe (error $ "No desc for " ++ show eID) $ M.lookup eID ds
   d eID
