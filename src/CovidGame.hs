@@ -21,155 +21,11 @@ import Control.Lens
 import Control.Monad
 import Data.Maybe
 
-bedroomDesc e = do
-  clock <- gets (view clock)
-  radio <- getOneEntityByName SimpleObj "radio"
-  let lines = [ if not (e^.?visited) then Just "You awake on Day 812 of The Quarantine.\n\nHalf-forgetten dreams of exponential curves leave you as you reluctantly get out of bed." else Nothing
-              , Just "This is your childhood bedroom.\nThe indigo wallpaper you chose for your tenth birthday peels from the walls in uneven patches.\nThe bed is single and sweat-damp - the walls too, ever since they closed up all the vents."
-              , if radio^.?onOff == On then Just $ "\nThe wall radio blares a 24/7 cast of the Boris Johnson simulacrum:\n  \"" <> (radioLines !! fromIntegral clock) <> "\"" else Nothing
-              ]
-  return $ T.unlines $ catMaybes lines
-  where
-    radioLines =
-      [ "... absolutely certain that we can keep deaths below twenty - maybe even fift<STATIC>..."
-      , "...<STATIC>illion. I'm told that this morning's Hancock Simulation puts a vaccine only a few weeks away..."
-      , "...and so remember - please - and repeat: STAY AT HOME. REMEMBER THE NHS. DEFY DEATH. STAY AT..."
-      ] ++ repeat "...HOME. REMEMBER THE NHS. DEFY DEATH. STAY AT..."
-
-radioDesc e = do
-  let lines = [ Just "A wall-mounted FM radio - they had to turn the signal back on last year. Government issue."
-              , if e^.?onOff == On then Just "It's on, and blaring headlines at you." else Just "It's dialled to static right now."
-              ]
-  return $ T.unlines $ catMaybes lines
-
-alarmDesc e = do
-  let lines = [ Just "An oldey-timey alarm clock with those two ringing bells. It's nailed to the bedside table. Where did you even get one of these?"
-              , if e^.?onOff == On then Just "It tolls fiercly for you." else Just "Mercifully, it's silent."
-              ]
-  return $ T.unlines $ catMaybes lines
-
-alarmOffWatcher = do
-  e <- getOneEntityByName SimpleObj "alarm clock"
-  when ((e^.?onOff) == Off) $ removeAlert "Alarm"
-
-deliveryKnockWatcher = do
-  time <- gets (view clock)
-  deliveryMan <- getEntityByName SimpleObj "delivery man"
-  when (time == 5 && isNothing deliveryMan) $ do
-    addAlert "Delivery" "You hear a frantic knocking at your front door. You should get that."
-    hallway <- getLocationByName "hallway"
-    deliveryMan <- mkSimpleObj "delivery man" ["man", "delivery", "delivery man"] (Just $ hallway^.?entityID)
-    modifyEntity (set talkable Talkable) (deliveryMan^.?entityID)
-    addDesc deliveryMan (const $ return "You can't see him too well through the frosted glass, but you can hear him okay")
-    addTalkToHandler deliveryMan do
-      incrementClock
-      logT "\"Fuckin' finally man! What took you? I gotta make hundreds more of these today to get mine!\""
-      logT "The delivery guy swipes a card, throwing open the hatch, slides a ration box through, and leaves hurriedly."
-      logT "The box tips over, spilling some of its contents."
-      
-      -- The guy leaves, the hatch opens
-      removeAlert "Delivery"
-      removeEntity $ deliveryMan^.?entityID
-      hatch <- getOneEntityByName SimpleObj "hatch"
-      modifyEntity (set openClosed $ Just Open) (hatch^.?entityID)
-
-      -- Can now get to the street
-      hallway <- getLocationByName "hallway"
-      street <- getLocationByName "street"
-      modifyEntity (set toNorth $ Just (street^.?entityID)) (hallway^.?entityID)
-
-      -- The hatch shuts after 2 more goes
-      oldTime <- gets (view clock)
-      addWatcher $ do
-        hatch <- getOneEntityByName SimpleObj "hatch"
-        newTime <- gets (view clock)
-        plunger <- getOneEntityByName SimpleObj "plunger"
-        when (hatch^.?openClosed == Open && newTime >= oldTime + 1 && (plunger^.locationID) /= (hatch ^.entityID)) $ do
-          addAlert "HatchShut" "The hatch on the front door has slammed shut, and won't reopen for another week."
-          modifyEntity (set openClosed $ Just Closed) (hatch^.?entityID)
-
-      -- The rations arrive
-      paperPlate <- mkSimpleObj "paper plate" ["plate", "paper plate"] (Just $ hallway^.?entityID)
-      modifyEntity (set storable Storable) (paperPlate^.?entityID)
-      addDesc paperPlate (const $ return "A paper plate, like we used to use at picnics in the before times.")
-
-      rationBox <- mkSimpleObj "ration box" ["ration box", "box"] (Just $ hallway^.?entityID)
-      addDesc rationBox (const $ return "A brown cardboard box.")
-      modifyEntity (set storable Storable) (rationBox^.?entityID)
-      addOpenHandler (rationBox^.?entityID) (const $ logT "The box tipped over and lays open on its side")
-
-      rations <- mkSimpleObj "assorted rations" ["rations"] (Just $ hallway^.?entityID)
-      addDesc rations (const $ return "Assorted rations - pouches of dehydrated egg, carbohydrate gunge, that sort of thing.")
-      modifyEntity (set storable Storable) (rations^.?entityID)
-      modifyEntity (set edible Edible) (rations^.?entityID)
-      addEatHandler (rations^.?entityID) (\eID -> do
-        p <- getPlayer
-        logT "You eat the full week's supply of rations in one go. Aren't you worried you'll need those later?"
-        addAchievement $ Achievement "Eyes Bigger Than Belly" "You're gonna regret that"
-        removeEntity eID)
-
-      -- Now that the plate exists, can add the handler
-      hairband <- getOneEntityByName SimpleObj "hairband"
-      addCombinationHandler (paperPlate^.?entityID) (hairband^.?entityID) (\plateID hairbandID -> do
-        logT "Using your medical expertise and surgical dexterity, you fashion a fucking facemask out of these two unlikely items."
-        removeEntity plateID
-        removeEntity hairbandID
-        mask <- mkSimpleObj "makeshift facemask" ["facemask", "mask"] Nothing
-        modifyEntity (set wearable Wearable) (mask^.?entityID)
-        addDesc mask (const $ return "A super-safe, military grade, virus-repellant face mask.")
-        addToInventory $ mask^.?entityID)
-
-hallwayDesc e = do
-  deliveryMan <- getEntityByName SimpleObj "delivery man"
-  hatch <- getOneEntityByName SimpleObj "hatch"
-  let lines = [ if not (e^.?visited) then Just "You shuffle into the hallway, suppressing a rattling cough." else Nothing
-              , Just "Framed family photos thick with dust adorn the walls."
-              , Just "The front door - for ingress only, of course - is to the North. There's a delivery slot at the bottom."
-              , Just "The flat extends to the West, but I didn't have time to write that code yet, so don't go there."
-              , if (hatch^.?openClosed) == Open then Just "The delivery slot on the front door is stuck open - you could probably fit through..." else Nothing
-              , if isJust deliveryMan then Just "The ration delivery man is on the other side of the door, shouting at you to confirm receipt." else Nothing
-              ]
-  return $ T.unlines $ catMaybes lines
-
-hatchDesc e = do
-  let isOpen = e^.?openClosed == Open
-      lines = [ Just "This is the hatch through which your rations get chucked. It opens for - I don't know, maybe two turns worth of time? - every week."
-              , if isOpen then Just "The hatch is open, and you can see the forbidden pavement outside. It's been years since you set foot there." else Nothing
-              ]
-  return $ T.unlines $ catMaybes lines
-
-streetDesc _ = do
-  p <- getPlayer
-  maskM <- getEntityByName SimpleObj "makeshift facemask"
-  let wearingMask = case maskM of
-                      Nothing -> False
-                      Just mask -> (mask^.?entityID) `S.member` (p^.?wearing) 
-  if wearingMask
-     then return "Your roughshod PPE holds strong as you emerge into the street for the first time in years. What challenges await? Who knows, these things take fucking ages to write. You win, in any case."
-     else return
-       $ "You emerge into the street for the first time in years. As you crawl out of the hatch, your fingers blister upon contact with the harsh and "
-       <> "infected concrete. Your first free breath scours your throat and lungs - you are unable to take a second. Why did you go outside without wearing a mask?"
-
-streetEndgameWatcher = do
-  l <- getPlayerLocation
-  when (l^.?name == "street") setGameOver
-
-bathDesc e = do
-  let isOn = e^.?onOff == On
-  let lines = [ Just "A crust of your skin coats the bottom of the freestanding tub. You ran out of domestic cleaning products in the first month of Quarantine. There is no plug."
-              , if isOn then Just "The water enters the overflow, and the taps continue to pour." else Just "The taps are off right now. Don't waste water."
-              ]
-  return $ T.unlines $ catMaybes lines
-
-alarmBathWatcher = do
-  alarm <- getOneEntityByName SimpleObj "alarm clock"
-  bath <- getOneEntityByName SimpleObj "bath"
-  hasCheev <- hasAchievement "Big Wet Clock"
-  when (not hasCheev && alarm^.locationID == bath^.entityID && bath^.?onOff == On)
-    $ addAchievement $ Achievement "Big Wet Clock" "Why did you do this???"
 
 buildCovidGame = do
+
   -- Watchers
+
   addWatcher alarmOffWatcher
   addWatcher deliveryKnockWatcher
   addWatcher alarmBathWatcher
@@ -177,25 +33,50 @@ buildCovidGame = do
 
 
   -- Alerts
+
   addAlert
     "Alarm"
     "Your alarm clock emits a shrill screech, signalling 05:00 - just half an hour until your shift starts."
 
 
   -- Achievements
+
   registerAchievement "Big Wet Clock"
   registerAchievement "Eyes Bigger Than Belly"
   registerAchievement "Simon Says"
 
 
   -- Locations
+
   bedroom <- mkLocation "bedroom"
-  addDesc bedroom bedroomDesc
+  addDesc bedroom (\e -> do
+    let radioLines = [ "... absolutely certain that we can keep deaths below twenty - maybe even fift<STATIC>..."
+                     , "...<STATIC>illion. I'm told that this morning's Hancock Simulation puts a vaccine only a few weeks away..."
+                     , "...and so remember - please - and repeat: STAY AT HOME. REMEMBER THE NHS. DEFY DEATH. STAY AT..."
+                     ] ++ repeat "...HOME. REMEMBER THE NHS. DEFY DEATH. STAY AT..."
+    clock <- gets (view clock)
+    radio <- getOneEntityByName SimpleObj "radio"
+    let lines = [ if not (e^.?visited) then Just "You awake on Day 812 of The Quarantine.\n\nHalf-forgetten dreams of exponential curves leave you as you reluctantly get out of bed." else Nothing
+                , Just "This is your childhood bedroom.\nThe indigo wallpaper you chose for your tenth birthday peels from the walls in uneven patches.\nThe bed is single and sweat-damp - the walls too, ever since they closed up all the vents."
+                , if radio^.?onOff == On then Just $ "\nThe wall radio blares a 24/7 cast of the Boris Johnson simulacrum:\n  \"" <> (radioLines !! fromIntegral clock) <> "\"" else Nothing
+                ]
+    return $ T.unlines $ catMaybes lines)
 
   hallway <- mkLocation "hallway"
-  addDesc hallway hallwayDesc
   modifyEntity (set toNorth $ hallway^.entityID) bedroom
   modifyEntity (set toSouth $ bedroom^.entityID) hallway
+  addDesc hallway (\e -> do
+    deliveryMan <- getEntityByName SimpleObj "delivery man"
+    hatch <- getOneEntityByName SimpleObj "hatch"
+    let lines = [ if not (e^.?visited) then Just "You shuffle into the hallway, suppressing a rattling cough." else Nothing
+                , Just "Framed family photos thick with dust adorn the walls."
+                , Just "The front door - for ingress only, of course - is to the North. There's a delivery slot at the bottom."
+                , Just "The flat extends to the West, but I didn't have time to write that code yet, so don't go there."
+                , if (hatch^.?openClosed) == Open then Just "The delivery slot on the front door is stuck open - you could probably fit through..." else Nothing
+                , if isJust deliveryMan then Just "The ration delivery man is on the other side of the door, shouting at you to confirm receipt." else Nothing
+                ]
+    return $ T.unlines $ catMaybes lines)
+
 
   bathroom <- mkLocation "bathroom"
   addConstDesc
@@ -207,27 +88,39 @@ buildCovidGame = do
   modifyEntity (set toWest $ hallway^.entityID) bathroom
 
   street <- mkLocation "street"
-  addDesc street streetDesc
+  addDesc street (\e -> do
+    p <- getPlayer
+    maskM <- getEntityByName SimpleObj "makeshift facemask"
+    let wearingMask = case maskM of
+                        Nothing -> False
+                        Just mask -> (mask^.?entityID) `S.member` (p^.?wearing) 
+    if wearingMask
+       then return
+         $ "Your roughshod PPE holds strong as you emerge into the street for the first time in years. "
+         <> "What challenges await? Who knows, these things take fucking ages to write. You win, in any case."
+       else return
+         $ "You emerge into the street for the first time in years. As you crawl out of the hatch, your fingers blister upon contact with the harsh and "
+         <> "infected concrete. Your first free breath scours your throat and lungs - you are unable to take a second. Why did you go outside without wearing a mask?")
 
 
   -- Objects
-  player <- mkPlayer "yourself" $ bedroom^.?entityID
+  player <- mkPlayer "yourself" $ bedroom
   addConstDesc
     player
     "You look like shit. Beard well past shoulder-length yet still patchy after all this time."
 
-  bed <- mkSimpleObj "bed" ["bed"] (Just $ bedroom^.?entityID)
+  bed <- mkSimpleObj "bed" ["bed"] (Just bedroom)
   addConstDesc
     bed
     "Yellowed sheets last changed months ago cover a parabolic mattress. You want back in so, so badly."
 
-  hairband <- mkSimpleObj "hairband" ["hairband", "band", "headband"] (Just $ bedroom^.?entityID)
+  hairband <- mkSimpleObj "hairband" ["hairband", "band", "headband"] (Just bedroom)
   modifyEntity (set storable Storable) hairband
   addConstDesc
     hairband
     "A faded elasticated hairband. Your head's big but it looks like it'd get around it."
 
-  radio <- mkSimpleObj "radio" ["radio"] (Just $ bedroom^.?entityID)
+  radio <- mkSimpleObj "radio" ["radio"] (Just bedroom)
   modifyEntity (set onOff $ Just On) radio
   addDesc radio radioDesc
   addTurnOnHandler radio (\e ->
@@ -243,7 +136,7 @@ buildCovidGame = do
         logT "There's no off switch, but you dial your way to the most quiet static you can find."
         modifyEntity (set onOff $ Just Off) e)
 
-  alarm <- mkSimpleObj "alarm clock" ["alarm", "clock", "alarm clock"] (Just $ bedroom^.?entityID)
+  alarm <- mkSimpleObj "alarm clock" ["alarm", "clock", "alarm clock"] (Just bedroom)
   modifyEntity (set storable Storable) alarm
   modifyEntity (set onOff $ Just On) alarm
   addDesc alarm alarmDesc
@@ -255,35 +148,35 @@ buildCovidGame = do
         logT "You slam a calloused hand onto the rusty metal bells, and the alarm is silenced."
         modifyEntity (set onOff $ Just Off) e)
 
-  photos <- mkSimpleObj "photos" ["photo", "photos"] (Just $ hallway ^.?entityID)
+  photos <- mkSimpleObj "photos" ["photo", "photos"] (Just hallway)
   addConstDesc
     photos
     $ "There's one of your parents looking happy a decade before you were born, "
     <> "and another of you nude in a public fountain chasing pigeons."
 
-  frontDoor <- mkSimpleObj "front door" ["door", "front door"] (Just $ hallway ^.?entityID)
+  frontDoor <- mkSimpleObj "front door" ["door", "front door"] (Just hallway)
   addConstDesc
     frontDoor
     $ "This used to be your way to the outside world. Now it only yawns, once a week, "
     <> "to receive a box of rations through the hatch in the lower half."
 
-  hatch <- mkSimpleObj "hatch" ["hatch", "slot"] (Just $ hallway^.?entityID)
+  hatch <- mkSimpleObj "hatch" ["hatch", "slot"] (Just hallway)
   addDesc hatch hatchDesc
   modifyEntity (set openClosed $ Just Closed) hatch
 
-  plunger <- mkSimpleObj "plunger" ["plunger"] (Just $ bathroom^.?entityID)
+  plunger <- mkSimpleObj "plunger" ["plunger"] (Just bathroom)
   addConstDesc
     plunger
     "A well-used, not-so-well-cleaned toilet plunger. It's about the width of that hatch out there."
   modifyEntity (set storable Storable) plunger
 
-  bath <- mkSimpleObj "bath" ["bath", "tub", "bathtub", "tap", "taps"] (Just $ bathroom^.?entityID)
+  bath <- mkSimpleObj "bath" ["bath", "tub", "bathtub", "tap", "taps"] (Just bathroom)
   modifyEntity (set onOff $ Just Off) bath
   addDesc bath bathDesc
-  addTurnOnHandler (bath^.?entityID) (\e -> do
+  addTurnOnHandler (bath) (\e -> do
     logT "You turn the rusty taps, and water floods the rotten tub. It quickly reaches the overflow."
     modifyEntity (set onOff $ Just On) e)
-  addTurnOffHandler (bath^.?entityID) (\e -> do
+  addTurnOffHandler (bath) (\e -> do
     logT "You turn off the taps and the water quickly drains through the open plug."
     modifyEntity (set onOff $ Just Off) e)
   
@@ -342,3 +235,118 @@ buildCovidGame = do
     case e^.?openClosed of
       Open -> logT "The hatch is already open"
       Closed -> logT "This can only be opened from the outside for deliveries.")
+
+
+
+radioDesc e = do
+  let lines = [ Just "A wall-mounted FM radio - they had to turn the signal back on last year. Government issue."
+              , if e^.?onOff == On then Just "It's on, and blaring headlines at you." else Just "It's dialled to static right now."
+              ]
+  return $ T.unlines $ catMaybes lines
+
+alarmDesc e = do
+  let lines = [ Just "An oldey-timey alarm clock with those two ringing bells. It's nailed to the bedside table. Where did you even get one of these?"
+              , if e^.?onOff == On then Just "It tolls fiercly for you." else Just "Mercifully, it's silent."
+              ]
+  return $ T.unlines $ catMaybes lines
+
+hatchDesc e = do
+  let isOpen = e^.?openClosed == Open
+      lines = [ Just "This is the hatch through which your rations get chucked. It opens for - I don't know, maybe two turns worth of time? - every week."
+              , if isOpen then Just "The hatch is open, and you can see the forbidden pavement outside. It's been years since you set foot there." else Nothing
+              ]
+  return $ T.unlines $ catMaybes lines
+
+bathDesc e = do
+  let isOn = e^.?onOff == On
+  let lines = [ Just "A crust of your skin coats the bottom of the freestanding tub. You ran out of domestic cleaning products in the first month of Quarantine. There is no plug."
+              , if isOn then Just "The water enters the overflow, and the taps continue to pour." else Just "The taps are off right now. Don't waste water."
+              ]
+  return $ T.unlines $ catMaybes lines
+
+alarmBathWatcher = do
+  alarm <- getOneEntityByName SimpleObj "alarm clock"
+  bath <- getOneEntityByName SimpleObj "bath"
+  hasCheev <- hasAchievement "Big Wet Clock"
+  when (not hasCheev && alarm^.locationID == bath^.entityID && bath^.?onOff == On)
+    $ addAchievement $ Achievement "Big Wet Clock" "Why did you do this???"
+
+alarmOffWatcher = do
+  e <- getOneEntityByName SimpleObj "alarm clock"
+  when ((e^.?onOff) == Off) $ removeAlert "Alarm"
+
+deliveryKnockWatcher = do
+  time <- gets (view clock)
+  deliveryMan <- getEntityByName SimpleObj "delivery man"
+  when (time == 5 && isNothing deliveryMan) $ do
+    addAlert "Delivery" "You hear a frantic knocking at your front door. You should get that."
+    hallway <- getLocationByName "hallway"
+    deliveryMan <- mkSimpleObj "delivery man" ["man", "delivery", "delivery man"] (Just hallway)
+    modifyEntity (set talkable Talkable) deliveryMan
+    addConstDesc
+      deliveryMan
+      "You can't see him too well through the frosted glass, but you can hear him okay"
+    addTalkToHandler deliveryMan do
+      incrementClock
+      logT "\"Fuckin' finally man! What took you? I gotta make hundreds more of these today to get mine!\""
+      logT "The delivery guy swipes a card, throwing open the hatch, slides a ration box through, and leaves hurriedly."
+      logT "The box tips over, spilling some of its contents."
+      
+      -- The guy leaves, the hatch opens
+      removeAlert "Delivery"
+      removeEntity deliveryMan
+      hatch <- getOneEntityByName SimpleObj "hatch"
+      modifyEntity (set openClosed $ Just Open) hatch
+
+      -- Can now get to the street
+      hallway <- getLocationByName "hallway"
+      street <- getLocationByName "street"
+      modifyEntity (set toNorth $ Just (street^.?entityID)) hallway
+
+      -- The hatch shuts after 2 more goes
+      oldTime <- gets (view clock)
+      addWatcher do
+        hatch <- getOneEntityByName SimpleObj "hatch"
+        newTime <- gets (view clock)
+        plunger <- getOneEntityByName SimpleObj "plunger"
+        when (hatch^.?openClosed == Open && newTime >= oldTime + 1 && (plunger^.locationID) /= (hatch ^.entityID)) $ do
+          addAlert "HatchShut" "The hatch on the front door has slammed shut, and won't reopen for another week."
+          modifyEntity (set openClosed $ Just Closed) hatch
+
+      -- The rations arrive
+      paperPlate <- mkSimpleObj "paper plate" ["plate", "paper plate"] (Just hallway)
+      modifyEntity (set storable Storable) paperPlate
+      addConstDesc
+        paperPlate
+        "A paper plate, like we used to use at picnics in the before times."
+
+      rationBox <- mkSimpleObj "ration box" ["ration box", "box"] (Just hallway)
+      addConstDesc rationBox "A brown cardboard box."
+      modifyEntity (set storable Storable) rationBox
+      addOpenHandler rationBox (const $ logT "The box tipped over and lays open on its side")
+
+      rations <- mkSimpleObj "assorted rations" ["rations"] (Just hallway)
+      addConstDesc
+        rations
+        "Assorted rations - pouches of dehydrated egg, carbohydrate gunge, that sort of thing."
+      modifyEntity (set storable Storable) rations
+      modifyEntity (set edible Edible) rations
+      addEatHandler rations (\e -> do
+        logT "You eat the full week's supply of rations in one go. Aren't you worried you'll need those later?"
+        addAchievement $ Achievement "Eyes Bigger Than Belly" "You're gonna regret that"
+        removeEntity e)
+
+      -- Now that the plate exists, can add the handler
+      hairband <- getOneEntityByName SimpleObj "hairband"
+      addCombinationHandler paperPlate hairband (\plate hairband -> do
+        logT "Using your medical expertise and surgical dexterity, you fashion a fucking facemask out of these two unlikely items."
+        removeEntity plate
+        removeEntity hairband
+        mask <- mkSimpleObj "makeshift facemask" ["facemask", "mask"] (Nothing :: Maybe EntityID)
+        modifyEntity (set wearable Wearable) mask
+        addConstDesc mask "A super-safe, military grade, virus-repellant face mask."
+        addToInventory mask)
+
+streetEndgameWatcher = do
+  l <- getPlayerLocation
+  when (l^.?name == "street") setGameOver

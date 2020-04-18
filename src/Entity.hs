@@ -53,23 +53,26 @@ registerEntity e = do
   es <- gets (view entities)
   modify $ \s -> s & entities %~ M.insert (e^.?entityID) e
 
-mkSimpleObj :: Name -> [Target] -> Maybe EntityID -> App Entity
-mkSimpleObj name targets locationID = do
+mkSimpleObj :: (HasID l) => Name -> [Target] -> Maybe l -> App Entity
+mkSimpleObj name targets l = do
+  let lID = case l of
+              Just l -> Just $ getID l
+              Nothing -> Nothing
   objID <- newID SimpleObj
   let obj = def { _entityID=Just objID
                 , _name=Just name
-                , _locationID=locationID
+                , _locationID=lID
                 , _targets=Just $ S.fromList targets
                 }
   registerEntity obj
   return obj
 
-mkPlayer :: Name -> EntityID -> App Entity
-mkPlayer name locationID = do
+mkPlayer :: (HasID l) => Name -> l -> App Entity
+mkPlayer name l = do
   playerID <- newID Player
   let player = def { _entityID=Just playerID
                    , _name=Just name
-                   , _locationID=Just locationID
+                   , _locationID=Just $ getID l
                    , _inventory=Just S.empty
                    , _wearing=Just S.empty
                    , _targets=Just $ S.fromList ["me", "self", "myself", "i", "player", "yourself"]
