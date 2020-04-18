@@ -1,24 +1,18 @@
 # hif
 
-## TODO
-- more forgiving verb/noun combos
-- whether on/off in inventory display
-- break things - with a broken status
-- synechdoche stuff - look under lid, for example
-- repeat the mantra on the radio for special ending
-- queries - what is X
-- more verbs, even if non functional
-- testing strategy - cmd sequences that should work and get to certain states
-
-
 CLEANUP
 =======
 - All messaging goes in a config, can be overridden by games
-- inventory management as helper func - to add, remove etc
-- Lots of duplication in enactInstruction - reduce this down
-- Figure out MonadState again
-- Move some functionality outside of App
+- Move some functionality outside of App where purely functional
 - Descriptions, etc could have the real entity piped through
 - Terse versions of all builder functions
 - HasEntityID to let us use funcs with ids or things?
-- Split things up
+
+TODAY
+=====
+- queries - what is X
+- less verbose game creation
+- inventory management as helper func - to add, remove etc
+- more verbs, even if non functional
+- testing strategy - cmd sequences that should work and get to certain states
+- break things - with a broken status
