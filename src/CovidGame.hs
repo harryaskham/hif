@@ -237,18 +237,19 @@ buildCovidGame = do
       Closed -> logT "This can only be opened from the outside for deliveries.")
 
 
-
 radioDesc e = do
   let lines = [ Just "A wall-mounted FM radio - they had to turn the signal back on last year. Government issue."
               , if e^.?onOff == On then Just "It's on, and blaring headlines at you." else Just "It's dialled to static right now."
               ]
   return $ T.unlines $ catMaybes lines
 
+
 alarmDesc e = do
   let lines = [ Just "An oldey-timey alarm clock with those two ringing bells. It's nailed to the bedside table. Where did you even get one of these?"
               , if e^.?onOff == On then Just "It tolls fiercly for you." else Just "Mercifully, it's silent."
               ]
   return $ T.unlines $ catMaybes lines
+
 
 hatchDesc e = do
   let isOpen = e^.?openClosed == Open
@@ -257,12 +258,14 @@ hatchDesc e = do
               ]
   return $ T.unlines $ catMaybes lines
 
+
 bathDesc e = do
   let isOn = e^.?onOff == On
   let lines = [ Just "A crust of your skin coats the bottom of the freestanding tub. You ran out of domestic cleaning products in the first month of Quarantine. There is no plug."
               , if isOn then Just "The water enters the overflow, and the taps continue to pour." else Just "The taps are off right now. Don't waste water."
               ]
   return $ T.unlines $ catMaybes lines
+
 
 alarmBathWatcher = do
   alarm <- getOneEntityByName SimpleObj "alarm clock"
@@ -271,9 +274,11 @@ alarmBathWatcher = do
   when (not hasCheev && alarm^.locationID == bath^.entityID && bath^.?onOff == On)
     $ addAchievement $ Achievement "Big Wet Clock" "Why did you do this???"
 
+
 alarmOffWatcher = do
   e <- getOneEntityByName SimpleObj "alarm clock"
   when ((e^.?onOff) == Off) $ removeAlert "Alarm"
+
 
 deliveryKnockWatcher = do
   time <- gets (view clock)
@@ -346,6 +351,7 @@ deliveryKnockWatcher = do
         modifyEntity (set wearable Wearable) mask
         addConstDesc mask "A super-safe, military grade, virus-repellant face mask."
         addToInventory mask)
+
 
 streetEndgameWatcher = do
   l <- getPlayerLocation
