@@ -10,4 +10,4 @@ TODO
 
 TODAY
 =====
-- Handlers get entity, not ID
+- Move away from logT by incorporating Writer, and having the main loop do the flushing out of messages - no IO!
