@@ -20,7 +20,7 @@ import Control.Monad.State
 import Control.Lens
 
 -- Run the game with the given commands
-withCmds :: [Text] ->  App ()
+withCmds :: [Text] -> App ()
 withCmds [] = return ()
 withCmds (c:cs) = do
   logT $ "> " <> c
