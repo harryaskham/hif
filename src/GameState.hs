@@ -41,7 +41,7 @@ type Stack st = StateT st IO
 data GameState =
   GameState
     { _entities :: Map EntityID Entity
-    , _descriptions :: Map EntityID (EntityID -> Stack GameState Text)
+    , _descriptions :: Map EntityID (Entity -> Stack GameState Text)
     , _clock :: Integer
     , _alerts :: Map AlertID Alert
     , _watchers :: [Stack GameState ()]
@@ -51,11 +51,11 @@ data GameState =
     , _gameOver :: Bool
     , _talkToHandlers :: Map EntityID (Stack GameState ())
     , _sayHandlers :: [Text -> Stack GameState ()]
-    , _turnOnHandlers :: Map EntityID (EntityID -> Stack GameState ())
-    , _turnOffHandlers :: Map EntityID (EntityID -> Stack GameState ())
-    , _combinationHandlers :: Map (EntityID, EntityID) (EntityID -> EntityID -> Stack GameState ())
-    , _eatHandlers :: Map EntityID (EntityID -> Stack GameState ())
-    , _openHandlers :: Map EntityID (EntityID -> Stack GameState ())
+    , _turnOnHandlers :: Map EntityID (Entity -> Stack GameState ())
+    , _turnOffHandlers :: Map EntityID (Entity -> Stack GameState ())
+    , _combinationHandlers :: Map (EntityID, EntityID) (Entity -> Entity -> Stack GameState ())
+    , _eatHandlers :: Map EntityID (Entity -> Stack GameState ())
+    , _openHandlers :: Map EntityID (Entity -> Stack GameState ())
     }
 makeLenses ''GameState
 
@@ -82,15 +82,15 @@ mkGameState = GameState { _entities=M.empty
 type App = Stack GameState
 
 -- Helpers for concrete workers
-type Description = EntityID -> App Text
+type Description = Entity -> App Text
 type Watcher = App ()
 type TalkToHandler = App ()
 type SayHandler = Text -> App ()
-type TurnOnHandler = EntityID -> App ()
-type TurnOffHandler = EntityID -> App ()
-type CombinationHandler = EntityID -> EntityID -> App ()
-type EatHandler = EntityID -> App ()
-type OpenHandler = EntityID -> App ()
+type TurnOnHandler = Entity -> App ()
+type TurnOffHandler = Entity -> App ()
+type CombinationHandler = Entity -> Entity -> App ()
+type EatHandler = Entity -> App ()
+type OpenHandler = Entity -> App ()
 
 -- Output text to the screen within the Monad stack
 logT :: Text -> App ()

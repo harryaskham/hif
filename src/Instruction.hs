@@ -365,7 +365,7 @@ enactInstruction (OpenI target) = do
       hs <- gets (view openHandlers)
       case M.lookup (e^.?entityID) hs of
         Nothing -> logT $ (e^.?name) <> " cannot be opened"
-        Just h -> h (e^.?entityID)
+        Just h -> h e
 
 enactInstruction (Wear target) = do
   eM <- oneInventoryTargetedEntity target
@@ -437,7 +437,7 @@ enactInstruction (TurnOn target) = do
         hs <- gets (view turnOnHandlers)
         case M.lookup (e^.?entityID) hs of
           Nothing -> logT $ "No way to turn on " <> e^.?name
-          Just h -> h (e^.?entityID)
+          Just h -> h e
 
 enactInstruction (TurnOff target) = do
   eM <- oneValidTargetedEntity target
@@ -449,7 +449,7 @@ enactInstruction (TurnOff target) = do
         hs <- gets (view turnOffHandlers)
         case M.lookup (e^.?entityID) hs of
           Nothing -> logT $ "No way to turn off " <> e^.?name
-          Just h -> h (e^.?entityID)
+          Just h -> h e
 
 enactInstruction Undo = do
   hs <- gets (view history)
@@ -468,7 +468,7 @@ enactInstruction (Eat target) = do
         hs <- gets (view eatHandlers)
         case M.lookup (e^.?entityID) hs of
           Nothing -> logT $ "No way to eat the " <> e^.?name
-          Just h -> h (e^.?entityID)
+          Just h -> h e
       Inedible -> logT $ "You try hard, but the " <> (e^.?name) <> " is inedible."
 
 enactInstruction (Combine t1 t2) = do
@@ -483,7 +483,7 @@ enactInstruction (Combine t1 t2) = do
               hs <- gets (view combinationHandlers)
               case M.lookup (e1^.?entityID, e2^.?entityID) hs of
                 Nothing -> logT $ "Can't combine " <> (e1^.?name) <> " and " <> (e2^.?name)
-                Just h -> h (e1^.?entityID) (e2^.?entityID)
+                Just h -> h e1 e2
 
 enactInstruction (TalkTo target) = do
   eM <- oneValidTargetedEntity target

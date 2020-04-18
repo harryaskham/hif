@@ -100,6 +100,9 @@ modifyPlayer f = do
   p <- getPlayer
   modifyEntity f (p^.?entityID)
 
+movePlayerTo :: (HasID e) => e -> App ()
+movePlayerTo l = modifyPlayer (set locationID $ Just (getID l))
+
 getAllEntities :: EntityType -> App [Entity]
 getAllEntities et = do
   es <- gets (view entities)
@@ -251,10 +254,11 @@ getPlayerLocation = do
   getEntity $ p^.?locationID
 
 -- Gets the compiled description for the given entity
+-- Forwards through a fresh view on the entity so the handler doesnt have to get it
 getDescription :: (HasID e) => e -> App Text
 getDescription e = do
   let eID = getID e
   ds <- gets (view descriptions)
   let d = fromMaybe (error $ "No desc for " ++ show eID) $ M.lookup eID ds
-  d eID
-
+  freshE <- getEntity eID
+  d freshE

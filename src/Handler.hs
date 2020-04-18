@@ -36,6 +36,10 @@ import Data.Char (isLetter, isDigit)
 addDesc :: (HasID e) => e -> Description -> App ()
 addDesc e d = modify $ \s -> s & descriptions %~ M.insert (getID e) d
 
+-- As above but adds an unpredicated description.
+addConstDesc :: (HasID e) => e -> Text -> App ()
+addConstDesc e d = addDesc e (const . return $ d)
+
 addWatcher :: Watcher -> App ()
 addWatcher w = modify $ over watchers (w:)
 
