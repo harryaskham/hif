@@ -49,7 +49,7 @@ buildCovidGame = do
   -- Locations
 
   bedroom <- mkLocation "bedroom"
-  addDesc bedroom (\e -> do
+  describe bedroom (\e -> do
     let radioLines = [ "... absolutely certain that we can keep deaths below twenty - maybe even fift<STATIC>..."
                      , "...<STATIC>illion. I'm told that this morning's Hancock Simulation puts a vaccine only a few weeks away..."
                      , "...and so remember - please - and repeat: STAY AT HOME. REMEMBER THE NHS. DEFY DEATH. STAY AT..."
@@ -65,7 +65,7 @@ buildCovidGame = do
   hallway <- mkLocation "hallway"
   modifyEntity (set toNorth $ hallway^.entityID) bedroom
   modifyEntity (set toSouth $ bedroom^.entityID) hallway
-  addDesc hallway (\e -> do
+  describe hallway (\e -> do
     deliveryMan <- getEntityByName SimpleObj "delivery man"
     hatch <- getOneEntityByName SimpleObj "hatch"
     let lines = [ if not (e^.?visited) then Just "You shuffle into the hallway, suppressing a rattling cough." else Nothing
@@ -79,7 +79,7 @@ buildCovidGame = do
 
 
   bathroom <- mkLocation "bathroom"
-  addConstDesc
+  describeC
     bathroom
     $ "You certainly haven't been following the sterilisation guidelines in here.\n"
     <> "An exotic mould snakes down from the ceiling.\n"
@@ -88,7 +88,7 @@ buildCovidGame = do
   modifyEntity (set toWest $ hallway^.entityID) bathroom
 
   street <- mkLocation "street"
-  addDesc street (\e -> do
+  describe street (\e -> do
     p <- getPlayer
     maskM <- getEntityByName SimpleObj "makeshift facemask"
     let wearingMask = case maskM of
@@ -105,24 +105,24 @@ buildCovidGame = do
 
   -- Objects
   player <- mkPlayer "yourself" $ bedroom
-  addConstDesc
+  describeC
     player
     "You look like shit. Beard well past shoulder-length yet still patchy after all this time."
 
   bed <- mkSimpleObj "bed" ["bed"] (Just bedroom)
-  addConstDesc
+  describeC
     bed
     "Yellowed sheets last changed months ago cover a parabolic mattress. You want back in so, so badly."
 
   hairband <- mkSimpleObj "hairband" ["hairband", "band", "headband"] (Just bedroom)
   modifyEntity (set storable Storable) hairband
-  addConstDesc
+  describeC
     hairband
     "A faded elasticated hairband. Your head's big but it looks like it'd get around it."
 
   radio <- mkSimpleObj "radio" ["radio"] (Just bedroom)
   modifyEntity (set onOff $ Just On) radio
-  addDesc radio radioDesc
+  describe radio radioDesc
   addTurnOnHandler radio (\e ->
     case e^.?onOff of
       Off -> do
@@ -139,7 +139,7 @@ buildCovidGame = do
   alarm <- mkSimpleObj "alarm clock" ["alarm", "clock", "alarm clock"] (Just bedroom)
   modifyEntity (set storable Storable) alarm
   modifyEntity (set onOff $ Just On) alarm
-  addDesc alarm alarmDesc
+  describe alarm alarmDesc
   addTurnOnHandler alarm (const $ logT "You can't turn an alarm on at will, man. Time only goes one way.")
   addTurnOffHandler alarm (\e ->
     case e^.?onOff of
@@ -149,30 +149,30 @@ buildCovidGame = do
         modifyEntity (set onOff $ Just Off) e)
 
   photos <- mkSimpleObj "photos" ["photo", "photos"] (Just hallway)
-  addConstDesc
+  describeC
     photos
     $ "There's one of your parents looking happy a decade before you were born, "
     <> "and another of you nude in a public fountain chasing pigeons."
 
   frontDoor <- mkSimpleObj "front door" ["door", "front door"] (Just hallway)
-  addConstDesc
+  describeC
     frontDoor
     $ "This used to be your way to the outside world. Now it only yawns, once a week, "
     <> "to receive a box of rations through the hatch in the lower half."
 
   hatch <- mkSimpleObj "hatch" ["hatch", "slot"] (Just hallway)
-  addDesc hatch hatchDesc
+  describe hatch hatchDesc
   modifyEntity (set openClosed $ Just Closed) hatch
 
   plunger <- mkSimpleObj "plunger" ["plunger"] (Just bathroom)
-  addConstDesc
+  describeC
     plunger
     "A well-used, not-so-well-cleaned toilet plunger. It's about the width of that hatch out there."
   modifyEntity (set storable Storable) plunger
 
   bath <- mkSimpleObj "bath" ["bath", "tub", "bathtub", "tap", "taps"] (Just bathroom)
   modifyEntity (set onOff $ Just Off) bath
-  addDesc bath bathDesc
+  describe bath bathDesc
   addTurnOnHandler (bath) (\e -> do
     logT "You turn the rusty taps, and water floods the rotten tub. It quickly reaches the overflow."
     modifyEntity (set onOff $ Just On) e)
@@ -191,7 +191,7 @@ buildCovidGame = do
       addAchievement $ Achievement "Simon Says" "Do you do everything you hear on the radio?"
       setGameOver
       ap <- mkLocation "Astral Plane"
-      addConstDesc ap
+      describeC ap
         $ "As you recite the mantra on the radio, you lose touch with your corporeal body.\n"
         <> "You feel yourself becoming one with the simulacrum as you continue your chant.\n"
         <> "Hours pass - then days - and your lips chap with thirst. Still you chant.\n"
@@ -288,7 +288,7 @@ deliveryKnockWatcher = do
     hallway <- getLocationByName "hallway"
     deliveryMan <- mkSimpleObj "delivery man" ["man", "delivery", "delivery man"] (Just hallway)
     modifyEntity (set talkable Talkable) deliveryMan
-    addConstDesc
+    describeC
       deliveryMan
       "You can't see him too well through the frosted glass, but you can hear him okay"
     addTalkToHandler deliveryMan do
@@ -321,17 +321,17 @@ deliveryKnockWatcher = do
       -- The rations arrive
       paperPlate <- mkSimpleObj "paper plate" ["plate", "paper plate"] (Just hallway)
       modifyEntity (set storable Storable) paperPlate
-      addConstDesc
+      describeC
         paperPlate
         "A paper plate, like we used to use at picnics in the before times."
 
       rationBox <- mkSimpleObj "ration box" ["ration box", "box"] (Just hallway)
-      addConstDesc rationBox "A brown cardboard box."
+      describeC rationBox "A brown cardboard box."
       modifyEntity (set storable Storable) rationBox
       addOpenHandler rationBox (const $ logT "The box tipped over and lays open on its side")
 
       rations <- mkSimpleObj "assorted rations" ["rations"] (Just hallway)
-      addConstDesc
+      describeC
         rations
         "Assorted rations - pouches of dehydrated egg, carbohydrate gunge, that sort of thing."
       modifyEntity (set storable Storable) rations
@@ -349,7 +349,7 @@ deliveryKnockWatcher = do
         removeEntity hairband
         mask <- mkSimpleObj "makeshift facemask" ["facemask", "mask"] (Nothing :: Maybe EntityID)
         modifyEntity (set wearable Wearable) mask
-        addConstDesc mask "A super-safe, military grade, virus-repellant face mask."
+        describeC mask "A super-safe, military grade, virus-repellant face mask."
         addToInventory mask)
 
 
