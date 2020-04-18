@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: e9a6f983282f3d4e935635d90de59a7a470666d59c0a7e94fee3c883a72ee7a2
+-- hash: 4b97ec21070919e1a7869bfb09dfe2f5c853285d01304c5bade3fcdb3e1a0860
 
 name:           hif
 version:        0.1.0.0
@@ -42,10 +42,12 @@ library
       src
   build-depends:
       MonadRandom
+    , QuickCheck
     , base >=4.7 && <5
     , containers
     , data-default
     , extra
+    , hspec
     , lens
     , listsafe
     , mtl
@@ -67,11 +69,13 @@ executable hif-exe
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       MonadRandom
+    , QuickCheck
     , base >=4.7 && <5
     , containers
     , data-default
     , extra
     , hif
+    , hspec
     , lens
     , listsafe
     , mtl
@@ -94,11 +98,13 @@ test-suite hif-test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       MonadRandom
+    , QuickCheck
     , base >=4.7 && <5
     , containers
     , data-default
     , extra
     , hif
+    , hspec
     , lens
     , listsafe
     , mtl

@@ -12,6 +12,7 @@ import EntityType
 import GameState
 import Entity
 import Engine
+import Handler
 
 import Control.Lens
 import Control.Monad.State
@@ -72,13 +73,17 @@ data Instruction = Go Direction
 data InstructionError = InstructionError
 
 -- Handle input, potentially running an instruction and modifying game state.
-runInstruction :: Text -> App (Either InstructionError Instruction)
-runInstruction instructionText =
+runInstruction :: Text -> App ()
+runInstruction instructionText = do
+  prevState <- get
   case parseInstruction instructionText of
     (Just i) -> do
       enactInstruction i
-      return $ Right i
-    Nothing -> return $ Left InstructionError
+      -- End of turn stuff
+      runWatchers
+      logT =<< describeCurrentTurn
+      unless (i == Undo) $ modify $ over history (prevState:)
+    Nothing -> logT "Invalid instruction"
 
 parseGo :: Parser Instruction
 parseGo =
@@ -289,6 +294,9 @@ enactInstruction (Go dir) = do
     Just lID -> do
       modifyPlayer (set locationID (Just lID))
       incrementClock
+      -- Mark this place as visited
+      p <- getPlayer
+      modifyEntity (set visited $ Just True) (p^.?locationID)
     Nothing -> logT $ "Cannot travel " <> showt dir <> "."
 
 enactInstruction (Say content) = do
@@ -307,6 +315,7 @@ enactInstruction Help =
   $ T.unlines [ "You can 'go north', 'north' or just 'n'."
               , "If nothing is happening, just 'wait'"
               , "'eat' stuff! 'wear' or 'remove' stuff! 'look at' stuff!"
+              , "Forget where you are? 'look'!"
               , "'talk to' the people you meet!"
               , "'turn on' stuff! 'turn off' stuff!"
               , "'put X in Y' or 'combine X with Y' if you think that's a good idea"
@@ -359,19 +368,16 @@ enactInstruction (OpenI target) = do
         Just h -> h (e^.?entityID)
 
 enactInstruction (Wear target) = do
-  es <- allValidTargetedEntities target
-  case es of
-    [] -> logT $ "Don't know " <> target
-    es -> do
-      let e = head es
-      case e^.wearable of
-        Wearable -> do
-          logT $ "You start wearing the " <> (e^.?name)
-          modifyPlayer (over wearing (fmap (S.insert $ e^.?entityID)))
-          modifyPlayer (over inventory (fmap (S.delete $ e^.?entityID)))
-          modifyEntity (set locationID Nothing) (e^.?entityID)
-        Unwearable ->
-          logT $ e^.?name <> " cannot be worn"
+  eM <- oneInventoryTargetedEntity target
+  case eM of
+    Nothing -> logT "You don't have that"
+    Just e -> case e^.wearable of
+      Wearable -> do
+        logT $ "You start wearing the " <> (e^.?name)
+        modifyPlayer (over wearing (fmap (S.insert $ e^.?entityID)))
+        removeFromInventory $ e^.?entityID
+      Unwearable ->
+        logT $ e^.?name <> " cannot be worn"
 
 enactInstruction (Remove target) = do
   es <- filterByTarget target <$> getPlayerWornEntities
@@ -381,22 +387,20 @@ enactInstruction (Remove target) = do
       let e = head es
       logT $ "You remove the " <> (e^.?name)
       modifyPlayer (over wearing (fmap (S.delete $ e^.?entityID)))
-      modifyPlayer (over inventory (fmap (S.insert $ e^.?entityID)))
+      addToInventory $ e^.?entityID
 
 enactInstruction (LookAt target) = do
-  es <- allValidTargetedEntities target
-  case es of
-    [] -> logT $ "Can't see " <> target
-    es -> do
-      let e = head es
+  eM <- oneValidTargetedEntity target
+  case eM of
+    Nothing -> logT "Can't see that"
+    Just e -> do
       d <- getDescription (e^.?entityID)
       logT d
-      -- Report on anything the thing contains
       containedEs <- getEntitiesAt (e^.?entityID)
       unless (null containedEs)
         $ logT $ "Inside is: " <> T.intercalate ", " ((^.?name) <$> containedEs)
 
-enactInstruction Look = logT "You look around... some more?"
+enactInstruction Look = logT =<< describeCurrentTurn
 
 enactInstruction Inventory = do
   p <- getPlayer
@@ -421,6 +425,7 @@ enactInstruction Inventory = do
 enactInstruction Wait = do
   incrementClock
   logT "You wait idly."
+  enactInstruction Look
 
 enactInstruction (TurnOn target) = do
   eM <- oneValidTargetedEntity target

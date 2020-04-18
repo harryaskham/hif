@@ -31,7 +31,6 @@ import Control.Monad (void)
 import Data.Char (isLetter, isDigit)
 
 data EntityType = Player
-                | Human
                 | Location
                 | SimpleObj
                 deriving (Eq, Show, Ord)

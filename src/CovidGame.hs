@@ -56,11 +56,11 @@ alarmWatcher = do
 
 deliveryKnockWatcher = do
   time <- gets (view clock)
-  deliveryMan <- getEntityByName Human "delivery man"
+  deliveryMan <- getEntityByName SimpleObj "delivery man"
   when (time == 5 && isNothing deliveryMan) $ do
     addAlert "Delivery" "You hear a frantic knocking at your front door. You should get that."
     hallway <- getLocationByName "hallway"
-    deliveryMan <- mkHuman "delivery man" ["man", "delivery", "delivery man"] (hallway^.?entityID)
+    deliveryMan <- mkSimpleObj "delivery man" ["man", "delivery", "delivery man"] (Just $ hallway^.?entityID)
     modifyEntity (set talkable Talkable) (deliveryMan^.?entityID)
     desc deliveryMan (const $ return "You can't see him too well through the frosted glass, but you can hear him okay")
     addTalkToHandler (deliveryMan^.?entityID) $ do
@@ -68,7 +68,7 @@ deliveryKnockWatcher = do
       logT "\"Fuckin' finally man! What took you? I gotta make hundreds more of these today to get mine!\""
       logT "The delivery guy swipes a card, throwing open the hatch, slides a ration box through, and leaves hurriedly."
       logT "The box tips over, spilling some of its contents."
-
+      
       -- The guy leaves, the hatch opens
       removeAlert "Delivery"
       removeEntity $ deliveryMan^.?entityID
@@ -108,32 +108,32 @@ deliveryKnockWatcher = do
         p <- getPlayer
         logT "You eat the full week's supply of rations in one go. Aren't you worried you'll need those later?"
         addAchievement $ Achievement "Eyes Bigger Than Belly" "You're gonna regret that"
-        modifyPlayer (over inventory (fmap (S.delete eID)))
         removeEntity eID)
 
       -- Now that the plate exists, can add the handler
       hairband <- getOneEntityByName SimpleObj "hairband"
       addCombinationHandler (paperPlate^.?entityID) (hairband^.?entityID) (\plateID hairbandID -> do
         logT "Using your medical expertise and surgical dexterity, you fashion a fucking facemask out of these two unlikely items."
-        modifyPlayer (over inventory (fmap (S.delete plateID)))
-        modifyPlayer (over inventory (fmap (S.delete hairbandID)))
         removeEntity plateID
         removeEntity hairbandID
         mask <- mkSimpleObj "makeshift facemask" ["facemask", "mask"] Nothing
         modifyEntity (set wearable Wearable) (mask^.?entityID)
         desc mask (const $ return "A super-safe, military grade, virus-repellant face mask.")
-        modifyPlayer (over inventory (fmap (S.insert $ mask^.?entityID))))
+        addToInventory $ mask^.?entityID)
+
+      -- Finally things changed so lets print
+      logT =<< describeCurrentTurn
 
 hallwayDesc eID = do
   e <- getEntity eID
-  deliveryMan <- getEntityByName Human "delivery man"
+  deliveryMan <- getEntityByName SimpleObj "delivery man"
   hatch <- getOneEntityByName SimpleObj "hatch"
   let lines = [ if not (e^.?visited) then Just "You shuffle into the hallway, suppressing a rattling cough." else Nothing
               , Just "Framed family photos thick with dust adorn the walls."
               , Just "The front door - for ingress only, of course - is to the North. There's a delivery slot at the bottom."
               , Just "The flat extends to the West, but I didn't have time to write that code yet, so don't go there."
               , if (hatch^.?openClosed) == Open then Just "The delivery slot on the front door is stuck open - you could probably fit through..." else Nothing
-              , if not . null $ deliveryMan then Just "The ration delivery man is on the other side of the door, shouting at you to confirm receipt." else Nothing
+              , if isJust deliveryMan then Just "The ration delivery man is on the other side of the door, shouting at you to confirm receipt." else Nothing
               ]
   return $ T.unlines $ catMaybes lines
 
@@ -283,7 +283,7 @@ buildCovidGame = do
   -- You can say anything to the delivery guy
   addSayHandler (\_ -> do
     l <- getPlayerLocation
-    deliveryMan <- getEntityByName Human "delivery man"
+    deliveryMan <- getEntityByName SimpleObj "delivery man"
     when ( (l^.?name) == "hallway" && isJust deliveryMan) $ enactInstruction (TalkTo "delivery man"))
 
   addCombinationHandler (plunger^.?entityID) (hatch^.?entityID) (\plungerID hatchID -> do
@@ -293,8 +293,7 @@ buildCovidGame = do
        then logT "The hatch is closed."
        else do
          logT "You use the filthy plunger to prop open the delivery hatch."
-         modifyEntity (set locationID $ Just (hatch^.?entityID)) (plunger^.?entityID)
-         modifyPlayer (over inventory (fmap (S.delete $ plunger^.?entityID))))
+         moveFromInventory (plunger^.?entityID) (hatch^.?entityID))
 
   addCombinationHandler (alarm^.?entityID) (bath^.?entityID) (\alarmID bathID -> do
     logT "You place the alarm clock into the bath, like a normal person would."
@@ -310,4 +309,4 @@ buildCovidGame = do
 
   registerAchievement "Big Wet Clock"
   registerAchievement "Eyes Bigger Than Belly"
-  registerAchievement "Astral Plane"
+  registerAchievement "Simon Says"

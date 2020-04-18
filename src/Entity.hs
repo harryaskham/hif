@@ -67,17 +67,6 @@ mkPlayer name locationID = do
   registerEntity player
   return player
 
-mkHuman :: Name -> [Target] -> EntityID -> App Entity
-mkHuman name targets locationID = do
-  humanID <- newID Human
-  let human = def { _entityID=Just humanID
-                  , _name=Just name
-                  , _targets=Just $ S.fromList targets
-                  , _locationID=Just locationID
-                  }
-  registerEntity human
-  return human
-
 mkLocation :: Name -> App Entity
 mkLocation name = do
   locationID <- newID Location
@@ -159,7 +148,10 @@ getEntitiesAt lID = do
 
 -- Deletes an entity.
 removeEntity :: EntityID -> App ()
-removeEntity eID = modify $ \s -> s & entities %~ M.delete eID
+removeEntity eID = do
+  modifyPlayer $ over wearing (fmap $ S.delete eID)
+  removeFromInventory eID
+  modify $ \s -> s & entities %~ M.delete eID
 
 -- Get all entities at the player's location, including contained things.
 getEntitiesNearPlayer :: App [Entity]
@@ -188,6 +180,12 @@ oneValidTargetedEntity t = do
   es <- allValidTargetedEntities t
   return $ SL.head es
 
+-- As above but only over inventory
+oneInventoryTargetedEntity :: Target -> App (Maybe Entity)
+oneInventoryTargetedEntity t = do
+  es <- filterByTarget t <$> getInventoryEntities
+  return $ SL.head es
+
 getInventoryEntities :: App [Entity]
 getInventoryEntities = do
   p <- getPlayer
@@ -197,6 +195,22 @@ inPlayerInventory :: EntityID -> App Bool
 inPlayerInventory eID = do
   p <- getPlayer
   return $ eID `S.member` (p^.?inventory)
+
+moveToInventory :: EntityID -> App ()
+moveToInventory eID = do
+  modifyEntity (set locationID Nothing) eID
+  addToInventory eID
+
+addToInventory :: EntityID -> App ()
+addToInventory eID = modifyPlayer (over inventory $ fmap (S.insert eID))
+
+removeFromInventory :: EntityID -> App ()
+removeFromInventory eID = modifyPlayer (over inventory $ fmap (S.delete eID))
+
+moveFromInventory :: EntityID -> EntityID -> App ()
+moveFromInventory eID lID = do
+  removeFromInventory eID
+  modifyEntity (set locationID $ Just lID) eID
 
 getPlayerWornEntities :: App [Entity]
 getPlayerWornEntities = do

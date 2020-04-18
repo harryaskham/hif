@@ -10,8 +10,8 @@ CLEANUP
 
 TODAY
 =====
-- queries - what is X
 - less verbose game creation
+- queries - what is X
 - inventory management as helper func - to add, remove etc
 - more verbs, even if non functional
 - testing strategy - cmd sequences that should work and get to certain states

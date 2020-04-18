@@ -35,6 +35,8 @@ dependencies:
 - text-show
 - parsec
 - extra
+- hspec
+- QuickCheck
 
 library:
   source-dirs: src

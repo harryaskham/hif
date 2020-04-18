@@ -22,17 +22,11 @@ import System.IO
 runApp :: App ()
 runApp = do
   buildCovidGame
+  -- One initial description before the rest are triggered by moving
+  logT =<< describeCurrentTurn
   loop
   where
     loop = do
-      -- Describe the place
-      ct <- describeCurrentTurn
-      logT ct
-
-      -- Mark this place as visited
-      p <- getPlayer
-      modifyEntity (set visited $ Just True) (p^.?locationID)
-
       -- End game if it's over
       isOver <- gets (view gameOver)
       if isOver
@@ -40,23 +34,13 @@ runApp = do
            logT "END OF STORY SO FAR"
            _ <- liftIO getLine
            logT "CIAO"
-         else instructionLoop
-
-    instructionLoop = do
-      -- Get input and run instruction. Store the old state for UNDO purposes.
-      prevState <- get
-      liftIO $ TIO.putStr "> "
-      instruction <- liftIO TIO.getLine
-      outcome <- runInstruction instruction
-      case outcome of
-        Left InstructionError -> do
-          logT "Invalid instruction"
-          instructionLoop
-        Right i -> do
-          -- Run any predicates, store historical state, and re-loop
-          runWatchers
-          unless (i == Undo) $ modify $ over history (prevState:)
-          loop
+         else do
+           -- Get input and run instruction. Store the old state for UNDO purposes.
+           prevState <- get
+           liftIO $ TIO.putStr "> "
+           instruction <- liftIO TIO.getLine
+           runInstruction instruction
+           loop
 
 main :: IO ()
 main = do
