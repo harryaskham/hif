@@ -37,6 +37,8 @@ type Alert = Text
 type AchievementID = Text
 data Achievement = Achievement AchievementID Text
 
+data InstructionError = InstructionError deriving (Eq, Show)
+
 type Stack st = StateT st IO
 data GameState =
   GameState
@@ -57,6 +59,7 @@ data GameState =
     , _eatHandlers :: Map EntityID (Entity -> Stack GameState ())
     , _openHandlers :: Map EntityID (Entity -> Stack GameState ())
     , _outLines :: [Text]
+    , _lastInstructionState :: Either InstructionError ()
     }
 makeLenses ''GameState
 
@@ -78,6 +81,7 @@ mkGameState = GameState { _entities=M.empty
                         , _eatHandlers=M.empty
                         , _openHandlers=M.empty
                         , _outLines=[]
+                        , _lastInstructionState=Right ()
                         }
 
 -- Instantiate MTL stack for game

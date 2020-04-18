@@ -70,15 +70,15 @@ data Instruction = Go Direction
                  | Say Text
                  deriving (Eq)
 
-data InstructionError = InstructionError
-
 -- Handle input, potentially running an instruction and modifying game state.
 runInstruction :: Text -> App ()
 runInstruction instructionText = do
   prevState <- get
   case parseInstruction instructionText of
     (Just i) -> do
-      enactInstruction i
+      -- Run the instruction and store its outcome
+      instructionState <- enactInstruction i
+      modify $ set lastInstructionState instructionState
       -- End of turn stuff
       runWatchers
       logT =<< describeCurrentTurn
@@ -287,7 +287,8 @@ lensForDir DirWest = toWest
 lensForDir DirUp = toUp
 lensForDir DirDown = toDown
 
-enactInstruction :: Instruction -> App ()
+-- Enact the instruction, reporting on success or failures status.
+enactInstruction :: Instruction -> App (Either InstructionError ())
 enactInstruction (Go dir) = do
   l <- getPlayerLocation
   case l^.lensForDir dir of
@@ -297,110 +298,139 @@ enactInstruction (Go dir) = do
       -- Mark this place as visited
       p <- getPlayer
       modifyEntity (set visited $ Just True) (p^.?locationID)
-    Nothing -> logT $ "Cannot travel " <> showt dir <> "."
+      return $ Right ()
+    Nothing -> do
+      logT $ "Cannot travel " <> showt dir <> "."
+      return $ Left InstructionError
 
 enactInstruction (Say content) = do
   logT $ "You speak aloud: '" <> content <> "'"
   hs <- gets (view sayHandlers)
   runHandlers hs
+  return $ Right ()
     where
       runHandlers [] = return ()
       runHandlers (h:hs) = do
         _ <- h content
         runHandlers hs
   
-enactInstruction Help =
-  liftIO
-  $ TIO.putStrLn
-  $ T.unlines [ "You can 'go north', 'north' or just 'n'."
-              , "If nothing is happening, just 'wait'"
-              , "'eat' stuff! 'wear' or 'remove' stuff! 'look at' stuff!"
-              , "Forget where you are? 'look'!"
-              , "'talk to' the people you meet!"
-              , "'turn on' stuff! 'turn off' stuff!"
-              , "'put X in Y' or 'combine X with Y' if you think that's a good idea"
-              , "'say' something to say it out loud"
-              , "'get thing' and 'drop thing', and 'i' or 'inventory' to see what you've got"
-              , "Did ya fuck something up? 'undo' to go back a step!"
-              ]
+enactInstruction Help = do
+  logT
+    $ T.unlines [ "You can 'go north', 'north' or just 'n'."
+                , "If nothing is happening, just 'wait'"
+                , "'eat' stuff! 'wear' or 'remove' stuff! 'look at' stuff!"
+                , "Forget where you are? 'look'!"
+                , "'talk to' the people you meet!"
+                , "'turn on' stuff! 'turn off' stuff!"
+                , "'put X in Y' or 'combine X with Y' if you think that's a good idea"
+                , "'say' something to say it out loud"
+                , "'get thing' and 'drop thing', and 'i' or 'inventory' to see what you've got"
+                , "Did ya fuck something up? 'undo' to go back a step!"
+                ]
+  return $ Right ()
 
 enactInstruction (Get target) = do
   p <- getPlayer
   eM <- oneValidTargetedEntity target
   case eM of
-    Nothing -> logT $ "No " <> target <> " to get."
+    Nothing -> do
+      logT $ "No " <> target <> " to get."
+      return $ Left InstructionError
     Just e ->
       ifM (inPlayerInventory (e^.?entityID))
-          (logT $ "You already have " <> e^.?name)
+          (do
+            logT $ "You already have " <> e^.?name
+            return $ Left InstructionError)
           (if isJust (e^.locationID) && e^.storable == Storable
                  then do
                    modifyEntity (set locationID Nothing) (e^.?entityID)
                    modifyPlayer (over inventory (fmap (S.insert $ e^.?entityID)))
                    incrementClock
                    logT $ "You get the " <> target
-                 else
-                   logT $ "Cannot get the " <> (e^.?name))
+                   return $ Right ()
+                 else do
+                   logT $ "Cannot get the " <> (e^.?name)
+                   return $ Left InstructionError)
 
 enactInstruction (Drop target) = do
   l <- getPlayerLocation
-  es <- filterInventoryByTarget target
-  case es of
-    [] -> logT $ "No " <> target <> " to drop."
-    es -> do
-      let e = head es
-      case e^.droppable of
-        Droppable -> do
-           modifyEntity (set locationID (l^.entityID)) (e^.?entityID)
-           modifyPlayer (over inventory (fmap (S.delete $ e^.?entityID)))
-           incrementClock
-           logT $ "You drop the " <> target
-        Undroppable ->
-          logT $ e^.?name <> " cannot be dropped"
+  eM <- oneInventoryTargetedEntity target
+  case eM of
+    Nothing -> do
+      logT $ "No " <> target <> " to drop."
+      return $ Left InstructionError
+    Just e -> case e^.droppable of
+      Droppable -> do
+        moveFromInventory e l
+        incrementClock
+        logT $ "You drop the " <> target
+        return $ Right ()
+      Undroppable -> do
+        logT $ e^.?name <> " cannot be dropped"
+        return $ Left InstructionError
 
 enactInstruction (OpenI target) = do
   eM <- oneValidTargetedEntity target
   case eM of
-    Nothing -> logT $ "No " <> target <> " to open."
+    Nothing -> do
+      logT $ "No " <> target <> " to open."
+      return $ Left InstructionError
     Just e -> do
       hs <- gets (view openHandlers)
       case M.lookup (e^.?entityID) hs of
-        Nothing -> logT $ (e^.?name) <> " cannot be opened"
-        Just h -> h e
+        Nothing -> do
+          logT $ (e^.?name) <> " cannot be opened"
+          return $ Left InstructionError
+        Just h -> do
+          h e
+          return $ Right ()
 
 enactInstruction (Wear target) = do
   eM <- oneInventoryTargetedEntity target
   case eM of
-    Nothing -> logT "You don't have that"
+    Nothing -> do
+      logT "You don't have that"
+      return $ Left InstructionError
     Just e -> case e^.wearable of
       Wearable -> do
         logT $ "You start wearing the " <> (e^.?name)
         modifyPlayer (over wearing (fmap (S.insert $ e^.?entityID)))
         removeFromInventory $ e^.?entityID
-      Unwearable ->
+        return $ Right ()
+      Unwearable -> do
         logT $ e^.?name <> " cannot be worn"
+        return $ Left InstructionError
 
 enactInstruction (Remove target) = do
   es <- filterByTarget target <$> getPlayerWornEntities
   case es of
-    [] -> logT $ "Not wearing " <> target
+    [] -> do
+      logT $ "Not wearing " <> target
+      return $ Left InstructionError
     es -> do
       let e = head es
       logT $ "You remove the " <> (e^.?name)
       modifyPlayer (over wearing (fmap (S.delete $ e^.?entityID)))
       addToInventory $ e^.?entityID
+      return $ Right ()
 
 enactInstruction (LookAt target) = do
   eM <- oneValidTargetedEntity target
   case eM of
-    Nothing -> logT "Can't see that"
+    Nothing -> do
+      logT "Can't see that"
+      return $ Left InstructionError
     Just e -> do
       d <- getDescription (e^.?entityID)
       logT d
       containedEs <- getEntitiesAt (e^.?entityID)
       unless (null containedEs)
         $ logT $ "Inside is: " <> T.intercalate ", " ((^.?name) <$> containedEs)
+      return $ Right ()
 
-enactInstruction Look = logT =<< describeCurrentTurn
+enactInstruction Look = do
+  logT =<< describeCurrentTurn
+  return $ Right ()
 
 enactInstruction Inventory = do
   p <- getPlayer
@@ -421,78 +451,123 @@ enactInstruction Inventory = do
                     0 -> "You got all achievements!"
                     _ -> "\nAchievements still locked:\n" <> T.intercalate "\n" (S.toList cheevsLeft)
   logT $ T.intercalate "\n" [invMsg, wearMsg, cheevGotMessage, cheevLeftMessage]
+  return $ Right ()
 
 enactInstruction Wait = do
   incrementClock
   logT "You wait idly."
+  return $ Right ()
 
 enactInstruction (TurnOn target) = do
   eM <- oneValidTargetedEntity target
   case eM of
-    Nothing -> logT $ "Can't find " <> target
+    Nothing -> do
+      logT $ "Can't find " <> target
+      return $ Left InstructionError
     Just e -> case e^.onOff of
-      Nothing -> logT "Can't turn that on"
+      Nothing -> do
+        logT "Can't turn that on"
+        return $ Left InstructionError
       Just onOffState -> do
         hs <- gets (view turnOnHandlers)
         case M.lookup (e^.?entityID) hs of
-          Nothing -> logT $ "No way to turn on " <> e^.?name
-          Just h -> h e
+          Nothing -> do
+            logT $ "No way to turn on " <> e^.?name
+            return $ Left InstructionError
+          Just h -> do
+            h e
+            return $ Right ()
 
 enactInstruction (TurnOff target) = do
   eM <- oneValidTargetedEntity target
   case eM of
-    Nothing -> logT $ "Can't find " <> target
+    Nothing -> do
+      logT $ "Can't find " <> target
+      return $ Left InstructionError
     Just e -> case e^.onOff of
-      Nothing -> logT "Can't turn that off"
+      Nothing -> do
+        logT "Can't turn that off"
+        return $ Left InstructionError
       Just onOffState -> do
         hs <- gets (view turnOffHandlers)
         case M.lookup (e^.?entityID) hs of
-          Nothing -> logT $ "No way to turn off " <> e^.?name
-          Just h -> h e
+          Nothing -> do
+            logT $ "No way to turn off " <> e^.?name
+            return $ Left InstructionError
+          Just h -> do
+            h e
+            return $ Right ()
 
 enactInstruction Undo = do
   hs <- gets (view history)
   case hs of
-    [] -> logT "Can't go back any further"
+    [] -> do
+      logT "Can't go back any further"
+      return $ Left InstructionError
     (h:_) -> do
       logT "By concentrating really hard, you turn time backwards a tiny amount"
       put h
+      return $ Right ()
 
 enactInstruction (Eat target) = do
   eM <- oneValidTargetedEntity target
   case eM of
-    Nothing -> logT $ "Can't find " <> target
+    Nothing -> do
+      logT $ "Can't find " <> target
+      return $ Left InstructionError
     Just e -> case e^.edible of
       Edible -> do
         hs <- gets (view eatHandlers)
         case M.lookup (e^.?entityID) hs of
-          Nothing -> logT $ "No way to eat the " <> e^.?name
-          Just h -> h e
-      Inedible -> logT $ "You try hard, but the " <> (e^.?name) <> " is inedible."
+          Nothing -> do
+            logT $ "No way to eat the " <> e^.?name
+            return $ Left InstructionError
+          Just h -> do
+            h e
+            return $ Right ()
+      Inedible -> do
+        logT $ "You try hard, but the " <> (e^.?name) <> " is inedible."
+        return $ Left InstructionError
 
 enactInstruction (Combine t1 t2) = do
   eM1 <- oneValidTargetedEntity t1
   eM2 <- oneValidTargetedEntity t2
   if isNothing eM1
-     then logT $ "Don't know what " <> t1 <> " is"
-     else if isNothing eM2 then logT $ "Don't know what " <> t2 <> " is"
+     then do
+       logT $ "Don't know what " <> t1 <> " is"
+       return $ Left InstructionError
+     else if isNothing eM2 then do
+       logT $ "Don't know what " <> t2 <> " is"
+       return $ Left InstructionError
      else let (Just e1) = eM1
               (Just e2) = eM2
            in do
               hs <- gets (view combinationHandlers)
               case M.lookup (e1^.?entityID, e2^.?entityID) hs of
-                Nothing -> logT $ "Can't combine " <> (e1^.?name) <> " and " <> (e2^.?name)
-                Just h -> h e1 e2
+                Nothing -> do
+                  logT $ "Can't combine " <> (e1^.?name) <> " and " <> (e2^.?name)
+                  return $ Left InstructionError
+                Just h -> do
+                  h e1 e2
+                  return $ Right ()
 
 enactInstruction (TalkTo target) = do
   eM <- oneValidTargetedEntity target
   case eM of
-    Nothing -> logT $ "Don't know what " <> target <> " is"
+    Nothing -> do
+      logT $ "Don't know what " <> target <> " is"
+      return $ Left InstructionError
     Just e ->
       case e^.talkable of
         Talkable -> do
           hs <- gets (view talkToHandlers)
-          fromMaybe
-            (logT $ (e^.?name) <> " isn't listening to you.")
-            (M.lookup (e^.?entityID) hs)
-        Untalkable -> logT $ "Can't talk to " <> e^.?name
+          case M.lookup (e^.?entityID) hs of
+            Nothing -> do
+              logT $ (e^.?name) <> " isn't listening to you."
+              return $ Left InstructionError
+            Just h -> do
+              h
+              return $ Right ()
+        Untalkable -> do
+          logT $ "Can't talk to " <> e^.?name
+          return $ Left InstructionError

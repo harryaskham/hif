@@ -32,8 +32,9 @@ runApp = do
       if isOver
          then do
            logT "END OF STORY SO FAR"
+           flushLog
            _ <- liftIO getLine
-           logT "CIAO"
+           return ()
          else do
            -- Get input and run instruction. Store the old state for UNDO purposes.
            prevState <- get

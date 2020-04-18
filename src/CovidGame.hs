@@ -201,7 +201,9 @@ buildCovidGame = do
   addSayHandler (const do
     l <- getPlayerLocation
     deliveryMan <- getEntityByName SimpleObj "delivery man"
-    when ( (l^.?name) == "hallway" && isJust deliveryMan) $ enactInstruction (TalkTo "delivery man"))
+    when ( (l^.?name) == "hallway" && isJust deliveryMan) do
+      _ <- enactInstruction (TalkTo "delivery man")
+      return ())
 
 
   -- Combination Handlers

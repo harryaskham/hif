@@ -99,3 +99,36 @@ main = hspec do
         , "eat rations"
         ]
         [ hasAchievement "Eyes Bigger Than Belly" ]
+
+    it "cant talk to man before arrival" do
+      checkPreds
+        buildCovidGame
+        [ "n"
+        , "talk to man"
+        ]
+        [ (==Left InstructionError) <$> gets (view lastInstructionState) ]
+
+    it "can talk to the man after arrival" do
+      checkPreds
+        buildCovidGame
+        [ "n"
+        , "wait"
+        , "wait"
+        , "wait"
+        , "wait"
+        , "talk to man"
+        ]
+        [ (==Right ()) <$> gets (view lastInstructionState) ]
+
+    it "cant talk to the man twice" do
+      checkPreds
+        buildCovidGame
+        [ "n"
+        , "wait"
+        , "wait"
+        , "wait"
+        , "wait"
+        , "talk to man"
+        , "talk to man"
+        ]
+        [ (==Left InstructionError) <$> gets (view lastInstructionState) ]
