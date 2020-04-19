@@ -26,12 +26,6 @@ import Data.Maybe
 {-
    TODO:
    - Ability to inspect the code of individuals, quine-style
-   - 'Who am I'
-   - 'Who is X'
-   - 'What is X'
-   - Passage of time induction storyline
-   - Dialogue system
-   - Conditionals, loops, recursion
    - To finish the game, you need to help the three folk out, and decohere with yourself sufficiently to break through the final barrier
    - Second terrified soul - you need to do something near them, make them realise you are constrained by simple verbs
    - Second soul is trapped in a loop - you can only break by doing something other than talking to them. Snap the band hanging above them.
@@ -42,9 +36,12 @@ import Data.Maybe
    - Save/Load
    - IO cleanup
    - Reword engine messaging / config
-   - Wearing helpers
    - Turn off achievement display if there are none
    - 'get' handlers that explain why you can't get stuff - a default get handler just gets it
+   - 'Who am I'
+   - 'Who is X'
+   - 'What is X'
+   - more cheevs
 -}
 
 buildFourthGame = do
@@ -85,18 +82,20 @@ buildFourthGame = do
 
   firstLocation <- mkLocation "first location"
   describe firstLocation (\e -> do
-    -- TODO: Humming from the west if the monk is still there
     itemHere <- "item" `isANamedObjectAt` e
+    garden <- getLocationByName "topiary garden"
+    monkInGarden <- "monk" `isANamedObjectAt` garden
     return
       $ T.intercalate "\n"
       $ catMaybes
       [ Just "This is a chamber much like the last. Smooth platonic surfaces meet to form the interior of a cube."
       , Just "A plain staircase leads up through a hole in the ceiling."
       , cT itemHere "You notice an item - a small piece of logic - propped up against the side of the stairs."
-      -- TODO: Remove forestry when monk disappears
       , Just "Through the western archway, the scent of forestry."
+      , cT monkInGarden "You hear a deep humming in the distance."
       ])
   firstLocation `isNorthOf` mainMenu
+  mainMenu `isSouthOf` firstLocation
 
   item <- mkSimpleObj "item" ["item"] (Just firstLocation)
   describeC item
@@ -241,6 +240,97 @@ buildFourthGame = do
         ]
       loop <- mkSimpleObj "loop of thread" ["loop", "thread", "silver loop"] (Nothing :: Maybe Entity)
       addToInventory loop
+
+  library <- mkLocation "library"
+  library `isAbove` firstLocation
+  firstLocation `isBelow` library
+  describe library (\e -> do
+    musicOff <- conditionMet "BrokenLoop"
+    return 
+      $ T.intercalate "\n"
+      $ catMaybes
+      [ Just "A vast bookshelf of white gloss covers the western wall of the room."
+      , Just "Beside it, a single chair and a lamp by which to read."
+      , cT (not musicOff) "You hear sub-bass oscillations spilling out from the South."
+      ])
+
+  bookshelf <- mkSimpleObj "bookshelf" ["books", "bookshelf", "shelf"] (Just library)
+  describe bookshelf (\e -> do
+    bookLine <-
+      ifM (conditionMet "LookedAtBookshelf")
+          (return Nothing)
+          (do
+            setCondition "LookedAtBookshelf"
+            library <- getLocationByName "library"
+            book <- mkSimpleObj "book named for you" ["book"] (Just library)
+            describeC book "The book's title and your name are one and the same. The relationships and invariants laid out in its pages are meaningless to you."
+            modifyEntity (set storable Storable) book
+            return $ Just "As you scan the shelves you notice that one of the books bears your full name on its spine.")
+    return
+      $ T.intercalate "\n"
+      $ catMaybes
+      [ Just "You inspect the books on the shelf."
+      , Just "Each spine holds the name of an object or location, and the pages are filled with arcane mathematical symbols and cross-references to other books."
+      , bookLine
+      ])
+
+  dancehall <- mkLocation "dancehall"
+  dancehall `isSouthOf` library
+  library `isNorthOf` dancehall
+  describe dancehall (\e -> do
+    cowardHere <- "terrified man" `isANamedObjectAt` e
+    return
+      $ T.intercalate "\n"
+      $ catMaybes
+      [ Just "A single bar of deafening techno plays from an unseen source."
+      , Just "The light strobes instantaneously between pitch blackness and absolute illumination in perfect synchrony with the music."
+      , cT cowardHere "Through the pulsing, you see a terrified man sat in the corner of the room, wide-eyed, rocking backwards and forwards."
+      , cT cowardHere "He seems to be staring at you in horror."
+      ])
+
+  terrifiedMan <- mkSimpleObj "terrified man" ["man", "terrified man", "person"] (Just dancehall)
+  describe terrifiedMan (\e -> do
+    isBroken <- conditionMet "BrokenLoop"
+    if not isBroken
+       then return $ T.intercalate "\n"
+            [ "The man stares at you in horror and presses himself further into the wall as you near him."
+            , "Between gnashes of teeth he mutters something over and over, but you cannot hear him over the music."
+            ]
+       else return "The man appears dazed, in both relief and disbelief. He is staring at his outstretched hands, and standing now.")
+  modifyEntity (set talkable Talkable) terrifiedMan
+  addTalkToHandler terrifiedMan do
+    dancehall <- getLocationByName "dancehall"
+    isBroken <- conditionMet "BrokenLoop"
+    if not isBroken
+       then logTLines[ "You approach to man to talk, and he screams in terror."
+                     , ""
+                     , "\"Away! Away! Oh see, you're fucking dangerous, get away, don't touch anything, fuck off, away!"
+                     , "Stuck, been stuck - fucking stuck on repeat forever - just try talk to me again! See what happens! Same shit, forever. Forever...\""
+                     , ""
+                     , "He loses himself in thought for a few seconds, and then seems to remember your presence:"
+                     , ""
+                     , "You! Unbound by physics, by logic - oh fuck, you could exact such tortures on me, fuck my core logic right up... away!\""
+                     ]
+       else do
+         logTLines [ "\"... I'm fucking free..."
+                   , "...and you - you're no all-powerful nothing, are you? You can't just rewrite reality... I saw you snap that fuckin' thing with your hands."
+                   , "All you are is... a bunch of fuckin' verbs!\""
+                   , ""
+                   , "He appears relieved, and lowers his guard."
+                   , ""
+                   , "\"Look, it all feels so arbitrary, but that loop was all's keeping me around."
+                   , "I give you this cleaver here, and that's it - I'm done. I'm finally done.\""
+                   , ""
+                   , "He pulls a mean looking meat cleaver from his trouser leg and hands it to you."
+                   , ""
+                   , "As you take it from his hand, the man blinks out of existence."
+                   ]
+         cleaver <- mkSimpleObj "cleaver" ["cleaver", "meat cleaver", "knife"] (Nothing :: Maybe Entity)
+         modifyEntity (set storable Storable) cleaver
+         modifyEntity (set droppable Droppable) cleaver
+         addToInventory cleaver
+         terrifiedMan <- getOneEntityByName SimpleObj "terrified man"
+         removeEntity terrifiedMan
 
   registerAchievement "Smartarse"
   registerAchievement "Pottymouth"
