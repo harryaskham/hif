@@ -288,6 +288,21 @@ getDescription e = do
 isNorthOf :: (HasID l1, HasID l2) => l1 -> l2 -> App ()
 isNorthOf target = modifyEntity (set toNorth (Just $ getID target))
 
+isEastOf :: (HasID l1, HasID l2) => l1 -> l2 -> App ()
+isEastOf target = modifyEntity (set toEast (Just $ getID target))
+
+isSouthOf :: (HasID l1, HasID l2) => l1 -> l2 -> App ()
+isSouthOf target = modifyEntity (set toSouth (Just $ getID target))
+
+isWestOf :: (HasID l1, HasID l2) => l1 -> l2 -> App ()
+isWestOf target = modifyEntity (set toWest (Just $ getID target))
+
+isAbove :: (HasID l1, HasID l2) => l1 -> l2 -> App ()
+isAbove target = modifyEntity (set toUp (Just $ getID target))
+
+isBelow :: (HasID l1, HasID l2) => l1 -> l2 -> App ()
+isBelow target = modifyEntity (set toDown (Just $ getID target))
+
 atLocation :: (HasID l, HasID e) => e -> l -> App Bool
 atLocation e l = do
   e <- getEntity (getID e)
@@ -299,4 +314,3 @@ isANamedObjectAt n l = do
   case eM of
     Nothing -> return False
     Just e -> e `atLocation` l
-

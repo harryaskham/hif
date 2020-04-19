@@ -338,7 +338,7 @@ enactInstruction Help = do
   logT
     $ T.unlines [ "You can 'go north', 'north' or just 'n'."
                 , "If nothing is happening, just 'wait'"
-                , "'eat' and 'drink' stuff! 'wear' or 'remove' stuff! 'look at' stuff!"
+                , "'eat' and 'drink' stuff! 'wear' or 'remove' stuff! 'look at' stuff! 'use' stuff!"
                 , "Forget where you are? 'look'!"
                 , "'talk to' the people you meet!"
                 , "'turn on' stuff! 'turn off' stuff!"
