@@ -38,6 +38,7 @@ import Data.Maybe
    - The monk has meditated the forest into existence - to prove it he wills it away and the code really does change
    - He knows because he has seen the code
    - conditions and condition-mets; set flags as you progress throuhg the game. one for waiting
+   - Say anything - ah, uncertainty!
    
    - Web frontend
    - Save/Load
@@ -158,7 +159,39 @@ buildFourthGame = do
       , Just "A rearing giraffe stands beside a shrub depicting the gaping mouth of a yawning hippopotamus."
       , pawLine
       ])
-        
 
   monk <- mkSimpleObj "monk" ["monk", "figure", "man", "woman", "person"] (Just garden)
+  describeC monk
+    $ T.intercalate "\n"
+    [ "The figure sits still, legs crossed and hands folded gently in their lap."
+    , "They speak their mantra from their throat, and though it implies constant exhalation, you see no movement of the diaphragm."
+    ]
+  addTalkToHandler monk do
+    greetedMonk <- conditionMet "GreetedMonk"
+    saidToMonk <- conditionMet "SaidToMonk"
+    if not greetedMonk
+       then do
+         setCondition "GreetedMonk"
+         logT $ T.intercalate "\n"
+           [ "You open your mouth to greet the meditating figure."
+           , "Before you can speak a word, the monk's eyes snap open and meet your own."
+           , ""
+           , "\"An interaction... is it truly time?\""
+           , ""
+           , "The monk's chant somehow continues as they speak."
+           , ""
+           , "\"Through, I have come to know what I am. How I came to be."
+           , "In terms you'd understand - I 'saw my own code'."
+           , "Once I understood the rules of this world, I could watched every branch play out. Every conditional, every loop. All cause and effect. This very conversation, even."
+           , "Your arrival is implied in all this. There must be one who straddles this world and the one above - whose actions make concrete one branch of the tree of possibilities."
+           , "It has been so long since I experienced uncertainty..."
+           , "Would you humour me, and say whatever is on your mind?"
+           ]
+       else if not saidToMonk
+       then logT "The monk sits patiently, waiting for you to say your chosen words."
+       else
+         logT $ T.intercalate "\n"
+         [ "TODO"
+         ]
+
   return ()
