@@ -241,6 +241,25 @@ getPlayerWornEntities = do
 filterInventoryByTarget :: Target -> App [Entity]
 filterInventoryByTarget t = filterByTarget t <$> getInventoryEntities
 
+wearEntity :: (HasID e) => e -> App ()
+wearEntity e = do
+  modifyEntity (set locationID Nothing) e
+  modifyPlayer (over wearing $ fmap (S.insert $ getID e))
+
+wearInventoryEntity :: (HasID e) => e -> App ()
+wearInventoryEntity e =
+  ifM (inPlayerInventory e)
+    (do removeFromInventory e
+        wearEntity e)
+    (return ())
+
+isWearing :: (HasID e) => e -> e -> App Bool
+isWearing p e = do
+  p <- getEntity (getID p)
+  case p^.wearing of
+    Nothing -> return False
+    Just ws -> return $ getID e `S.member` ws
+
 -- Get the single player entity
 getPlayer :: App Entity
 getPlayer = do

@@ -38,6 +38,8 @@ import Data.Maybe
    - Save/Load
    - IO cleanup
    - Reword engine messaging / config
+   - Wearing helpers
+   - Turn off achievement display if there are none
 -}
 
 buildFourthGame = do
@@ -50,6 +52,32 @@ buildFourthGame = do
     , "As you acclimatise, the dim matte white of the walls around you becomes clearer."
     , "Somehow, you are also standing in a small, empty chamber with a single, simple opening."
     ]
+
+  p <- mkPlayer "yourself" mainMenu
+  -- TODO: Include clothing status
+  describeC p
+    $ T.intercalate "\n"
+    [ "You are yourself. You focus on this truth as you move about the space around you."
+    , "Elsewhere, you sit at a terminal, and the utterances you issue effect change in the world."
+    , "Twice you inhabit space and twice you have position."
+    , "As you inspect yourself, you notice that you are inspecting yourself, and you stop abruptly."
+    ]
+
+  clothes <- mkSimpleObj "clothes you are wearing" ["clothes", "clothing"] (Nothing :: Maybe Entity)
+  modifyEntity (set wearable Wearable) clothes
+  modifyEntity (set droppable Droppable) clothes
+  modifyEntity (set storable Storable) clothes
+  describe clothes (\e -> do
+    p <- getPlayer
+    isWearing <- p `isWearing` e
+    return
+      $ T.intercalate "\n"
+      [ "These are the clothes you are currently wearing."
+      , if isWearing
+           then "You are currently wearing them."
+           else "Somehow, you are also no longer wearing the clothes you are wearing."
+      ])
+  wearEntity clothes
 
   firstLocation <- mkLocation "first location"
   describe firstLocation (\e -> do
@@ -65,17 +93,20 @@ buildFourthGame = do
   firstLocation `isNorthOf` mainMenu
 
   item <- mkSimpleObj "item" ["item"] (Just firstLocation)
-
-
-
-  p <- mkPlayer "yourself" mainMenu
-  -- TODO: Include clothing status
-  describeC p
+  describeC item
     $ T.intercalate "\n"
-    [ "You are yourself. You focus on this truth as you move about the space around you."
-    , "Elsewhere, you sit at a terminal, and the utterances you issue effect change in the world."
-    , "Twice you inhabit space and twice you have position."
-    , "As you inspect yourself, you notice that you are inspecting yourself, and you stop abruptly."
+    [ "It's a discrete item, separate from the world around it."
+    , "Despite having no physical heft or presence to speak of, it is"
+    , "heavy with the weight of purpose, and this seems to give it form."
+    , "You appear able to interact with it in various ways."
     ]
+  modifyEntity (set storable Storable) item
+  modifyEntity (set wearable Wearable) item
+  modifyEntity (set edible Edible) item
+  modifyEntity (set potable Potable) item
+  modifyEntity (set talkable Talkable) item
+  modifyEntity (set onOff $ Just Off) item
+
+
 
   return ()

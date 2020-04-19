@@ -108,7 +108,7 @@ instance Default Entity where
                , _name=Nothing
                , _targets=Nothing
                , _storable=Unstorable
-               , _droppable=Droppable
+               , _droppable=Undroppable
                , _usable=Unusable
                , _edible=Inedible
                , _potable=Unpotable
