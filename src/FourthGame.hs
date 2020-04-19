@@ -33,6 +33,10 @@ import Data.Maybe
    - Dialogue system
    - Conditionals, loops, recursion
    - Limited agency - not God but limited by verbs all the same
+   - Increase seperation; become less like yourself. Desynchronise the player and the avatar
+   - The monk wants to feel the passage of time again - wait for him
+   - Monk reveals fate - release the 3 souls trapped here and you too can face oblivion
+   - He knows because he has seen the code
    
    - Web frontend
    - Save/Load
@@ -40,6 +44,7 @@ import Data.Maybe
    - Reword engine messaging / config
    - Wearing helpers
    - Turn off achievement display if there are none
+   - 'get' handlers that explain why you can't get stuff - a default get handler just gets it
 -}
 
 buildFourthGame = do
@@ -54,7 +59,6 @@ buildFourthGame = do
     ]
 
   p <- mkPlayer "yourself" mainMenu
-  -- TODO: Include clothing status
   describeC p
     $ T.intercalate "\n"
     [ "You are yourself. You focus on this truth as you move about the space around you."
@@ -105,8 +109,11 @@ buildFourthGame = do
   modifyEntity (set edible Edible) item
   modifyEntity (set potable Potable) item
   modifyEntity (set talkable Talkable) item
+  modifyEntity (set usable Usable) item
   modifyEntity (set onOff $ Just Off) item
-
-
+  addTalkToHandler item $ logT "You recount a short anecdote to the item. It does not respond."
+  addTurnOnHandler item (const $ logT "You prod at the item until you are satisfied that you have activated it in some way, although no chance in its appearance has occurred.")
+  addTurnOffHandler item (const $ logT "You will the item to still itself. It remains dormant.")
+  addUseHandler item (const $ logT "You make use of the item in the usual way. It appears that nothing is programmed to happen.")
 
   return ()

@@ -53,10 +53,12 @@ data GameState =
     , _gameOver :: Bool
     , _talkToHandlers :: Map EntityID (Stack GameState ())
     , _sayHandlers :: [Text -> Stack GameState ()]
+    , _useHandlers :: Map EntityID (Entity -> Stack GameState ())
     , _turnOnHandlers :: Map EntityID (Entity -> Stack GameState ())
     , _turnOffHandlers :: Map EntityID (Entity -> Stack GameState ())
     , _combinationHandlers :: Map (EntityID, EntityID) (Entity -> Entity -> Stack GameState ())
     , _eatHandlers :: Map EntityID (Entity -> Stack GameState ())
+    , _drinkHandlers :: Map EntityID (Entity -> Stack GameState ())
     , _openHandlers :: Map EntityID (Entity -> Stack GameState ())
     , _outLines :: [Text]
     , _lastInstructionState :: Either InstructionError ()
@@ -75,10 +77,12 @@ mkGameState = GameState { _entities=M.empty
                         , _talkToHandlers=M.empty
                         , _gameOver=False
                         , _sayHandlers=[]
+                        , _useHandlers=M.empty
                         , _turnOnHandlers=M.empty
                         , _turnOffHandlers=M.empty
                         , _combinationHandlers=M.empty
                         , _eatHandlers=M.empty
+                        , _drinkHandlers=M.empty
                         , _openHandlers=M.empty
                         , _outLines=[]
                         , _lastInstructionState=Right ()
@@ -92,10 +96,12 @@ type Description = Entity -> App Text
 type Watcher = App ()
 type TalkToHandler = App ()
 type SayHandler = Text -> App ()
+type UseHandler = Entity -> App ()
 type TurnOnHandler = Entity -> App ()
 type TurnOffHandler = Entity -> App ()
 type CombinationHandler = Entity -> Entity -> App ()
 type EatHandler = Entity -> App ()
+type DrinkHandler = Entity -> App ()
 type OpenHandler = Entity -> App ()
 
 -- Output text to the screen within the Monad stack

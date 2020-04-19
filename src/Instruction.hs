@@ -55,10 +55,12 @@ data Instruction = Go Direction
                  | Get Target
                  | Drop Target
                  | Eat Target
+                 | Drink Target
                  | TalkTo Target 
                  | Look
                  | LookAt Target
                  | Inventory
+                 | Use Target
                  | TurnOn Target
                  | TurnOff Target
                  | Combine Target Target
@@ -187,6 +189,14 @@ parseEat = do
   eof
   return $ Eat (T.pack target)
 
+parseDrink :: Parser Instruction
+parseDrink = do
+  string "drink"
+  spaces
+  target <- many1 anyChar
+  eof
+  return $ Drink (T.pack target)
+
 parseLook :: Parser Instruction
 parseLook = do
   anyString ["l", "look"]
@@ -207,6 +217,14 @@ parseTalkTo = do
   target <- many1 anyChar
   eof
   return $ TalkTo (T.pack target)
+
+parseUse :: Parser Instruction
+parseUse = do
+  string "use"
+  spaces
+  target <- many1 anyChar
+  eof
+  return $ Use (T.pack target)
 
 parseTurnOn :: Parser Instruction
 parseTurnOn = do
@@ -261,11 +279,13 @@ instructionParser =
   <|> try parseWait
   <|> try parseLook
   <|> try parseLookAt
+  <|> try parseUse
   <|> try parseTurnOn
   <|> try parseTurnOff
   <|> try parseHelp
   <|> try parseTalkTo
   <|> try parseEat
+  <|> try parseDrink
   <|> try parseCombine
   <|> try parseWear
   <|> try parseRemove
@@ -318,7 +338,7 @@ enactInstruction Help = do
   logT
     $ T.unlines [ "You can 'go north', 'north' or just 'n'."
                 , "If nothing is happening, just 'wait'"
-                , "'eat' stuff! 'wear' or 'remove' stuff! 'look at' stuff!"
+                , "'eat' and 'drink' stuff! 'wear' or 'remove' stuff! 'look at' stuff!"
                 , "Forget where you are? 'look'!"
                 , "'talk to' the people you meet!"
                 , "'turn on' stuff! 'turn off' stuff!"
@@ -458,6 +478,26 @@ enactInstruction Wait = do
   logT "You wait idly."
   return $ Right ()
 
+enactInstruction (Use target) = do
+  eM <- oneValidTargetedEntity target
+  case eM of
+    Nothing -> do
+      logT $ "Can't find " <> target
+      return $ Left InstructionError
+    Just e -> case e^.usable of
+      Unusable -> do
+        logT $ "Can't use " <> e^.?name
+        return $ Left InstructionError
+      Usable -> do
+        hs <- gets (view useHandlers)
+        case M.lookup (e^.?entityID) hs of
+          Nothing -> do
+            logT $ "No way to use " <> e^.?name
+            return $ Left InstructionError
+          Just h -> do
+            h e
+            return $ Right ()
+
 enactInstruction (TurnOn target) = do
   eM <- oneValidTargetedEntity target
   case eM of
@@ -527,6 +567,26 @@ enactInstruction (Eat target) = do
             return $ Right ()
       Inedible -> do
         logT $ "You try hard, but the " <> (e^.?name) <> " is inedible."
+        return $ Left InstructionError
+
+enactInstruction (Drink target) = do
+  eM <- oneValidTargetedEntity target
+  case eM of
+    Nothing -> do
+      logT $ "Can't find " <> target
+      return $ Left InstructionError
+    Just e -> case e^.edible of
+      Edible -> do
+        hs <- gets (view drinkHandlers)
+        case M.lookup (e^.?entityID) hs of
+          Nothing -> do
+            logT $ "No way to drink the " <> e^.?name
+            return $ Left InstructionError
+          Just h -> do
+            h e
+            return $ Right ()
+      Inedible -> do
+        logT $ "The " <> (e^.?name) <> " cannot be drunk."
         return $ Left InstructionError
 
 enactInstruction (Combine t1 t2) = do

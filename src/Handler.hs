@@ -59,11 +59,17 @@ addTalkToHandler e h = modify $ over talkToHandlers (M.insert (getID e) h)
 addEatHandler :: (HasID e) => e -> EatHandler -> App ()
 addEatHandler e h = modify $ over eatHandlers (M.insert (getID e) h)
 
+addDrinkHandler :: (HasID e) => e -> DrinkHandler -> App ()
+addDrinkHandler e h = modify $ over drinkHandlers (M.insert (getID e) h)
+
 addOpenHandler :: (HasID e) => e -> OpenHandler -> App ()
 addOpenHandler e h = modify $ over openHandlers (M.insert (getID e) h)
 
 addSayHandler :: SayHandler -> App ()
 addSayHandler h = modify $ over sayHandlers (h:)
+
+addUseHandler :: (HasID e) => e -> UseHandler -> App ()
+addUseHandler e h = modify $ over useHandlers (M.insert (getID e) h)
 
 addTurnOnHandler :: (HasID e) => e -> TurnOnHandler -> App ()
 addTurnOnHandler e h = modify $ over turnOnHandlers (M.insert (getID e) h)
