@@ -25,15 +25,8 @@ import Data.Maybe
 
 {-
    TODO:
-   - Ability to inspect the code of individuals, quine-style
-   - To finish the game, you need to help the three folk out, and decohere with yourself sufficiently to break through the final barrier
-   - Second terrified soul - you need to do something near them, make them realise you are constrained by simple verbs
-   - Second soul is trapped in a loop - you can only break by doing something other than talking to them. Snap the band hanging above them.
-   - Third soul is trying continuously to commit suicide - find him hanging. Give him the cleaver to help him out, and he'll go straight through his hand. Now you can give him the paw.
-   - Third guy gives you something for the monk, which disappears the monk and lets you descend through the pedestal.
-
    - TO WIN: change appearance - you'd never wear these in real life - and change your name (erase the book)
-   - Suicidal woman gives you a pen
+   - cheevs for using the item in various ways
    
    - Web frontend
    - Save/Load
@@ -130,6 +123,7 @@ buildFourthGame = do
   describe garden (\e -> do
     isMonkHere <- "monk" `isANamedObjectAt` e
     isTopiaryHere <- "topiaries" `isANamedObjectAt` e
+    let isGratingOpen = isJust $ e^.toDown
     return
       $ T.intercalate "\n"
       $ catMaybes
@@ -139,8 +133,9 @@ buildFourthGame = do
            else Nothing
       , if isMonkHere
            then Just "On a raised platform by the trunk of a laurel elephant sits a shaven figure, cross-legged and deep in meditation, breathing a continuous and unbroken mantra."
-           -- TODO: Access via the cubic net
-           else Just "In the centre, the cubic platform has unfurled into an infinitesimally thin net of six squares."
+           else if isGratingOpen
+           then Just "In the centre, the cubic platform on which the monk sat has unfurled into an infinitesimally thin net of six squares laid out in a cross.\nThe central square is an infinitesimally fine grating through which you might be able to pass."
+           else Just "In the centre, the cubic platform on which the monk sat has unfurled into an infinitesimally thin net of six squares laid out in a cross.\nThe central square is a fine grating impassable by a physical being like you. Only they can pass, and you and they aren't yet separate enough.\n"
       ])
   garden `isWestOf` firstLocation
   firstLocation `isEastOf` garden
@@ -179,9 +174,22 @@ buildFourthGame = do
                           ]
                 removeEntity paw
                 removeEntity suicidalWoman
+                setCondition "TwoDown"
                 pen <- mkSimpleObj "marker pen" ["pen", "marker", "marker pen"] (Nothing :: Maybe Entity)
                 describeC pen "An ordinary marker pen. You have memories of defacing newspapers with it as a child. Don't you?"
-                addToInventory pen)
+                addToInventory pen
+                book <- getOneEntityByName SimpleObj "book named for you"
+                addCombinationHandler pen book (\pen book -> do
+                  setCondition "BookDefaced"
+                  logTLines [ "You take the marker and strike through the name on the spine and cover."
+                            , "As they do so, you think up a new name - one completely unlike your own."
+                            , "You write the name they thought of on the cover and they place the defaced book back in your inventory."
+                            ]
+                  removeEntity book
+                  defacedBook <- mkSimpleObj "defaced book" ["book", "defaced book"] (Nothing :: Maybe Entity)
+                  addToInventory defacedBook
+                  describeC defacedBook "It's the formal system that defines you/them, but you've changed the name on the spine. They feel some agency returning as they read it."
+                  addAlert "BookDefaced" "The book now defaced, you see flashes of a computer screen covered in text overlaying your vision."))
 
             return $ Just "You notice that one of the bonobo's paws has splintered, and could easily be broken away from its tree.")
     return
@@ -202,6 +210,7 @@ buildFourthGame = do
   addTalkToHandler monk do
     greetedMonk <- conditionMet "GreetedMonk"
     saidToMonk <- conditionMet "SaidToMonk"
+    twoDown <- conditionMet "TwoDown"
     if not greetedMonk
        then do
          setCondition "GreetedMonk"
@@ -223,7 +232,47 @@ buildFourthGame = do
            ]
        else if not saidToMonk
        then logT "The monk sits patiently, waiting for you to say your chosen words."
-       else logT "The monk does not respond."
+       else if not twoDown
+       then logT "The monk does not respond."
+       else do
+         clothesCond <- conditionMet "RemovedClothes"
+         outfitCond <- conditionMet "WorkOutfit"
+         bookCond <- conditionMet "BookDefaced"
+         let numComplete = length $ filter (==True) [clothesCond, outfitCond, bookCond]
+         when (numComplete == 3) (addAchievement $ Achievement "Model Student" "Decohered fully before meeting the monk")
+         logTLines
+           $ catMaybes
+           [ Just "You speak with the monk once again."
+           , Just ""
+           , Just "\"So - only I remain? Such a happy branch."
+           , Just "Your return concludes my blissful loop."
+           , Just ""
+           , Just "The terminal state lies beneath me - you will shortly see the entryway."
+           , cT (numComplete == 0) "You cannot pass through as you are - you are still two."
+           , cT (numComplete == 1) "You cannot pass - you have begun to decohere, but you are still two in essence."
+           , cT (numComplete == 2) "You have nearly separated from them; but can only pass as one."
+           , cT (numComplete == 3) "I see you have already achieved decoherence - you are separate enough from them to pass."
+           , Just "One cannot proceed through the grating without sufficient severance of the self."
+           , cT (not clothesCond) "Your two selves still wear the same clothing."
+           , cT (not outfitCond) "Even naked, you share too many features with you - they must distinguish yourself."
+           , cT (not bookCond) "This reality knows too much of you - you must misdirect it somehow."
+           , Just "I hope you come to know oblivion also.\""
+           , Just ""
+           , Just "The monk smiles peacefully, and is deleted."
+           ]
+         removeEntity monk
+         grating <- mkLocation "through the grating"
+         grating `isBelow` garden
+         addWatcher do
+           p <- getPlayer
+           gameOver <- p `atLocation` grating
+           when gameOver do
+             logTLines [ "The bit-patterns representing your avatar rot as the logic of the game collapses."
+                       , "Only you remain. You become increasingly conscious of the keyboard under your hands, and the screen in front of your eyes."
+                       , "You stare blinkingly at this text, indicating the end of the game."
+                       ]
+             setGameOver
+         describeC grating "They - your avatar - pass through the diffraction grating in the ground. You read this message describing the action."
   addSayHandler (\content -> do
     l <- getPlayerLocation
     isMonkHere <- "monk" `isANamedObjectAt` l
@@ -491,15 +540,42 @@ buildFourthGame = do
       , Just "It is the Borges Library of clothing - every conceivable outfit exists somewhere in this plane."
       , outfitLine
       ])
-    
-  -- TODO:
-  -- give cleaver for wrists
-  -- takes off hand
-  -- give paw
-  -- replaces it
-  -- add watcher for return to the monk
-  -- mirror desc
-  -- clothes so very unlike yours
+
+  addWatcher do
+    clothes <- getOneEntityByName SimpleObj "clothes you are wearing"
+    p <- getPlayer
+    wearing <- p `isWearing` clothes
+    if wearing
+       then do
+         conditionMet "RemovedClothes"
+         addAlert "RegularClothes" "You are not wearing the clothes you are wearing. The decoherence causes your vision to blur."
+       else do
+         removeCondition "RemovedClothes"
+         removeAlert "RegularClothes"
+
+  addWatcher do
+    outfit <- getOneEntityByName SimpleObj "terrible outfit"
+    p <- getPlayer
+    wearing <- p `isWearing` outfit
+    if wearing
+       then do
+         conditionMet "WornOutfit"
+         addAlert "Outfit" "Wearing the outfit, they look nothing like you. The dissonance dries your mouth."
+       else do
+         removeCondition "WorkOutfit"
+         removeAlert "Outfit"
+
+  addWatcher do
+    clothesCond <- conditionMet "RemovedClothes"
+    outfitCond <- conditionMet "WorkOutfit"
+    bookCond <- conditionMet "BookDefaced"
+    garden <- getLocationByName "topiary garden"
+    grating <- getLocationByName "through the grating"
+    let numComplete = length $ filter (==True) [clothesCond, outfitCond, bookCond]
+    if numComplete == 3
+       then modifyEntity (set toDown (Just $ grating^.?entityID)) garden
+       else modifyEntity (set toDown Nothing) garden
 
   registerAchievement "Smartarse"
   registerAchievement "Pottymouth"
+  registerAchievement "Model Student"

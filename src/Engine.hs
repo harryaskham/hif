@@ -60,6 +60,9 @@ conditionMet c = do
   cs <- gets (view conditions)
   return $ c `S.member` cs
 
+removeCondition :: Condition -> App ()
+removeCondition c = modify $ over conditions (S.delete c)
+
 setGameOver :: App ()
 setGameOver = modify $ set gameOver True
 

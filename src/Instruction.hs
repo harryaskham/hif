@@ -213,7 +213,7 @@ parseTurnOff = do
 
 parseCombine :: Parser Instruction
 parseCombine = do
-  string "put" <|> string "combine"
+  string "put" <|> string "combine" <|> string "use"
   spaces
   target1 <- many1 letter
   spaces

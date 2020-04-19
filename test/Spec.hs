@@ -217,3 +217,31 @@ main = hspec do
         , isNothing <$> getEntityByName SimpleObj "paw"
         , getOneEntityByName SimpleObj "marker pen" >>= inPlayerInventory
         ]
+
+    it "can reach the grating" do
+      checkPreds
+        buildFourthGame
+        [ "n"
+        , "w"
+        , "look at trees"
+        , "get paw"
+        , "talk to monk"
+        , "say wooooo"
+        , "wait"
+        , "e"
+        , "u"
+        , "s"
+        , "break loop"
+        , "talk to man"
+        , "n"
+        , "e"
+        , "talk to woman"
+        , "give cleaver to woman"
+        , "give paw to woman"
+        , "look at cupboard"
+        , "get outfit"
+        , "w"
+        , "d"
+        , "w"
+        ]
+        [ flushLog ]
