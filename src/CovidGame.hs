@@ -11,6 +11,7 @@ import Engine
 import Handler
 import Entity
 import Instruction
+import InstructionType
 
 import Control.Monad.State
 import qualified Data.Text as T

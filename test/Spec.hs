@@ -10,6 +10,7 @@ import FourthGame
 import Engine
 import Entity
 import Instruction
+import InstructionType
 
 import Test.Hspec
 import Test.QuickCheck
@@ -19,6 +20,7 @@ import qualified Data.Text as T
 import Data.Text (Text)
 import Control.Monad.State
 import Control.Lens
+import Data.Either
 
 -- Run the game with the given commands
 withCmds :: [Text] -> App ()
@@ -119,7 +121,7 @@ main = hspec do
         , "wait"
         , "talk to man"
         ]
-        [ (==Right ()) <$> gets (view lastInstructionState) ]
+        [ (==Right (TalkTo "man")) <$> gets (view lastInstructionState) ]
 
     it "cant talk to the man twice" do
       checkPreds
@@ -146,4 +148,15 @@ main = hspec do
             , [ "n", "turn on item" ]
             , [ "n", "turn off item" ]
             ]
-        <*> pure [ (==Right ()) <$> gets (view lastInstructionState) ]
+        <*> pure [ isRight <$> gets (view lastInstructionState) ]
+
+    it "can get the loop" do
+      checkPreds
+        buildFourthGame
+        [ "n"
+        , "w"
+        , "talk to monk"
+        , "say wooooo"
+        , "wait"
+        ]
+        [ getOneEntityByName SimpleObj "loop of thread" >>= inPlayerInventory ]

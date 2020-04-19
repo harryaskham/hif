@@ -1,8 +1,6 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RankNTypes #-}
 
 module Instruction where
@@ -13,6 +11,7 @@ import GameState
 import Entity
 import Engine
 import Handler
+import InstructionType
 
 import Control.Lens
 import Control.Monad.State
@@ -33,44 +32,6 @@ import Text.Parsec.Char
 import Text.Parsec.String (Parser)
 import Control.Monad (void)
 import Data.Char (isLetter, isDigit)
-
-data Direction = DirNorth
-               | DirEast
-               | DirSouth
-               | DirWest
-               | DirUp
-               | DirDown
-               deriving (Eq)
-
-instance TextShow Direction where
-  showb DirNorth = "North"
-  showb DirEast = "East"
-  showb DirSouth = "South"
-  showb DirWest = "West"
-  showb DirUp = "upwards"
-  showb DirDown = "downwards"
-
-data Instruction = Go Direction
-                 | Wait
-                 | Get Target
-                 | Drop Target
-                 | Eat Target
-                 | Drink Target
-                 | TalkTo Target 
-                 | Look
-                 | LookAt Target
-                 | Inventory
-                 | Use Target
-                 | TurnOn Target
-                 | TurnOff Target
-                 | Combine Target Target
-                 | Wear Target
-                 | Remove Target
-                 | Help
-                 | Undo
-                 | OpenI Target
-                 | Say Text
-                 deriving (Eq)
 
 -- Handle input, potentially running an instruction and modifying game state.
 runInstruction :: Text -> App ()
@@ -308,8 +269,8 @@ lensForDir DirUp = toUp
 lensForDir DirDown = toDown
 
 -- Enact the instruction, reporting on success or failures status.
-enactInstruction :: Instruction -> App (Either InstructionError ())
-enactInstruction (Go dir) = do
+enactInstruction :: Instruction -> App (Either InstructionError Instruction)
+enactInstruction i@(Go dir) = do
   l <- getPlayerLocation
   case l^.lensForDir dir of
     Just lID -> do
@@ -318,23 +279,23 @@ enactInstruction (Go dir) = do
       -- Mark this place as visited
       p <- getPlayer
       modifyEntity (set visited $ Just True) (p^.?locationID)
-      return $ Right ()
+      return $ Right i
     Nothing -> do
       logT $ "Cannot travel " <> showt dir <> "."
       return $ Left InstructionError
 
-enactInstruction (Say content) = do
+enactInstruction i@(Say content) = do
   logT $ "You speak aloud: '" <> content <> "'"
   hs <- gets (view sayHandlers)
   runHandlers hs
-  return $ Right ()
+  return $ Right i
     where
       runHandlers [] = return ()
       runHandlers (h:hs) = do
         _ <- h content
         runHandlers hs
   
-enactInstruction Help = do
+enactInstruction i@Help = do
   logT
     $ T.unlines [ "You can 'go north', 'north' or just 'n'."
                 , "If nothing is happening, just 'wait'"
@@ -347,9 +308,9 @@ enactInstruction Help = do
                 , "'get thing' and 'drop thing', and 'i' or 'inventory' to see what you've got"
                 , "Did ya fuck something up? 'undo' to go back a step!"
                 ]
-  return $ Right ()
+  return $ Right i
 
-enactInstruction (Get target) = do
+enactInstruction i@(Get target) = do
   p <- getPlayer
   eM <- oneValidTargetedEntity target
   case eM of
@@ -367,12 +328,12 @@ enactInstruction (Get target) = do
                    modifyPlayer (over inventory (fmap (S.insert $ e^.?entityID)))
                    incrementClock
                    logT $ "You get the " <> target
-                   return $ Right ()
+                   return $ Right i
                  else do
                    logT $ "Cannot get the " <> (e^.?name)
                    return $ Left InstructionError)
 
-enactInstruction (Drop target) = do
+enactInstruction i@(Drop target) = do
   l <- getPlayerLocation
   eM <- oneInventoryTargetedEntity target
   case eM of
@@ -384,12 +345,12 @@ enactInstruction (Drop target) = do
         moveFromInventory e l
         incrementClock
         logT $ "You drop the " <> target
-        return $ Right ()
+        return $ Right i
       Undroppable -> do
         logT $ e^.?name <> " cannot be dropped"
         return $ Left InstructionError
 
-enactInstruction (OpenI target) = do
+enactInstruction i@(OpenI target) = do
   eM <- oneValidTargetedEntity target
   case eM of
     Nothing -> do
@@ -403,9 +364,9 @@ enactInstruction (OpenI target) = do
           return $ Left InstructionError
         Just h -> do
           h e
-          return $ Right ()
+          return $ Right i
 
-enactInstruction (Wear target) = do
+enactInstruction i@(Wear target) = do
   eM <- oneInventoryTargetedEntity target
   case eM of
     Nothing -> do
@@ -416,12 +377,12 @@ enactInstruction (Wear target) = do
         logT $ "You start wearing the " <> (e^.?name)
         modifyPlayer (over wearing (fmap (S.insert $ e^.?entityID)))
         removeFromInventory $ e^.?entityID
-        return $ Right ()
+        return $ Right i
       Unwearable -> do
         logT $ e^.?name <> " cannot be worn"
         return $ Left InstructionError
 
-enactInstruction (Remove target) = do
+enactInstruction i@(Remove target) = do
   es <- filterByTarget target <$> getPlayerWornEntities
   case es of
     [] -> do
@@ -432,9 +393,9 @@ enactInstruction (Remove target) = do
       logT $ "You remove the " <> (e^.?name)
       modifyPlayer (over wearing (fmap (S.delete $ e^.?entityID)))
       addToInventory $ e^.?entityID
-      return $ Right ()
+      return $ Right i
 
-enactInstruction (LookAt target) = do
+enactInstruction i@(LookAt target) = do
   eM <- oneValidTargetedEntity target
   case eM of
     Nothing -> do
@@ -446,13 +407,13 @@ enactInstruction (LookAt target) = do
       containedEs <- getEntitiesAt (e^.?entityID)
       unless (null containedEs)
         $ logT $ "Inside is: " <> T.intercalate ", " ((^.?name) <$> containedEs)
-      return $ Right ()
+      return $ Right i
 
-enactInstruction Look = do
+enactInstruction i@Look = do
   logT =<< describeCurrentTurn
-  return $ Right ()
+  return $ Right i
 
-enactInstruction Inventory = do
+enactInstruction i@Inventory = do
   p <- getPlayer
   invMsg <- case S.size (p^.?inventory) of
               0 -> return "Your inventory is empty."
@@ -471,14 +432,14 @@ enactInstruction Inventory = do
                     0 -> "You got all achievements!"
                     _ -> "\nAchievements still locked:\n" <> T.intercalate "\n" (S.toList cheevsLeft)
   logT $ T.intercalate "\n" [invMsg, wearMsg, cheevGotMessage, cheevLeftMessage]
-  return $ Right ()
+  return $ Right i
 
-enactInstruction Wait = do
+enactInstruction i@Wait = do
   incrementClock
   logT "You wait idly."
-  return $ Right ()
+  return $ Right i
 
-enactInstruction (Use target) = do
+enactInstruction i@(Use target) = do
   eM <- oneValidTargetedEntity target
   case eM of
     Nothing -> do
@@ -496,9 +457,9 @@ enactInstruction (Use target) = do
             return $ Left InstructionError
           Just h -> do
             h e
-            return $ Right ()
+            return $ Right i
 
-enactInstruction (TurnOn target) = do
+enactInstruction i@(TurnOn target) = do
   eM <- oneValidTargetedEntity target
   case eM of
     Nothing -> do
@@ -516,9 +477,9 @@ enactInstruction (TurnOn target) = do
             return $ Left InstructionError
           Just h -> do
             h e
-            return $ Right ()
+            return $ Right i
 
-enactInstruction (TurnOff target) = do
+enactInstruction i@(TurnOff target) = do
   eM <- oneValidTargetedEntity target
   case eM of
     Nothing -> do
@@ -536,9 +497,9 @@ enactInstruction (TurnOff target) = do
             return $ Left InstructionError
           Just h -> do
             h e
-            return $ Right ()
+            return $ Right i
 
-enactInstruction Undo = do
+enactInstruction i@Undo = do
   hs <- gets (view history)
   case hs of
     [] -> do
@@ -547,9 +508,9 @@ enactInstruction Undo = do
     (h:_) -> do
       logT "By concentrating really hard, you turn time backwards a tiny amount"
       put h
-      return $ Right ()
+      return $ Right i
 
-enactInstruction (Eat target) = do
+enactInstruction i@(Eat target) = do
   eM <- oneValidTargetedEntity target
   case eM of
     Nothing -> do
@@ -564,12 +525,12 @@ enactInstruction (Eat target) = do
             return $ Left InstructionError
           Just h -> do
             h e
-            return $ Right ()
+            return $ Right i
       Inedible -> do
         logT $ "You try hard, but the " <> (e^.?name) <> " is inedible."
         return $ Left InstructionError
 
-enactInstruction (Drink target) = do
+enactInstruction i@(Drink target) = do
   eM <- oneValidTargetedEntity target
   case eM of
     Nothing -> do
@@ -584,12 +545,12 @@ enactInstruction (Drink target) = do
             return $ Left InstructionError
           Just h -> do
             h e
-            return $ Right ()
+            return $ Right i
       Inedible -> do
         logT $ "The " <> (e^.?name) <> " cannot be drunk."
         return $ Left InstructionError
 
-enactInstruction (Combine t1 t2) = do
+enactInstruction i@(Combine t1 t2) = do
   eM1 <- oneValidTargetedEntity t1
   eM2 <- oneValidTargetedEntity t2
   if isNothing eM1
@@ -609,9 +570,9 @@ enactInstruction (Combine t1 t2) = do
                   return $ Left InstructionError
                 Just h -> do
                   h e1 e2
-                  return $ Right ()
+                  return $ Right i
 
-enactInstruction (TalkTo target) = do
+enactInstruction i@(TalkTo target) = do
   eM <- oneValidTargetedEntity target
   case eM of
     Nothing -> do
@@ -627,7 +588,7 @@ enactInstruction (TalkTo target) = do
               return $ Left InstructionError
             Just h -> do
               h
-              return $ Right ()
+              return $ Right i
         Untalkable -> do
           logT $ "Can't talk to " <> e^.?name
           return $ Left InstructionError

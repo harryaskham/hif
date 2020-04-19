@@ -9,6 +9,7 @@ module GameState where
 
 import Tools
 import EntityType
+import InstructionType
 
 import Control.Lens
 import Control.Monad.State
@@ -39,8 +40,6 @@ data Achievement = Achievement AchievementID Text
 
 type Condition = Text
 
-data InstructionError = InstructionError deriving (Eq, Show)
-
 type Stack st = StateT st IO
 data GameState =
   GameState
@@ -63,7 +62,7 @@ data GameState =
     , _drinkHandlers :: Map EntityID (Entity -> Stack GameState ())
     , _openHandlers :: Map EntityID (Entity -> Stack GameState ())
     , _outLines :: [Text]
-    , _lastInstructionState :: Either InstructionError ()
+    , _lastInstructionState :: Either InstructionError Instruction
     , _conditions :: Set Condition
     }
 makeLenses ''GameState
@@ -88,7 +87,7 @@ mkGameState = GameState { _entities=M.empty
                         , _drinkHandlers=M.empty
                         , _openHandlers=M.empty
                         , _outLines=[]
-                        , _lastInstructionState=Right ()
+                        , _lastInstructionState=Left InstructionError  -- TODO: woops
                         , _conditions=S.empty
                         }
 

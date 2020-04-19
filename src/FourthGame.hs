@@ -11,6 +11,7 @@ import Engine
 import Handler
 import Entity
 import Instruction
+import InstructionType
 
 import Control.Monad.State
 import qualified Data.Text as T
@@ -31,14 +32,11 @@ import Data.Maybe
    - Passage of time induction storyline
    - Dialogue system
    - Conditionals, loops, recursion
-   - Limited agency - not God but limited by verbs all the same
-   - Increase seperation; become less like yourself. Desynchronise the player and the avatar
-   - The monk wants to feel the passage of time again - wait for him
-   - Monk reveals fate - release the 3 souls trapped here and you too can face oblivion
-   - The monk has meditated the forest into existence - to prove it he wills it away and the code really does change
-   - He knows because he has seen the code
-   - conditions and condition-mets; set flags as you progress throuhg the game. one for waiting
-   - Say anything - ah, uncertainty!
+   - To finish the game, you need to help the three folk out, and decohere with yourself sufficiently to break through the final barrier
+   - Second terrified soul - you need to do something near them, make them realise you are constrained by simple verbs
+   - Second soul is trapped in a loop - you can only break by doing something other than talking to them. Snap the band hanging above them.
+   - Third soul is trying continuously to commit suicide - find him hanging. Give him the cleaver to help him out, and he'll go straight through his hand. Now you can give him the paw.
+   - Third guy gives you something for the monk, which disappears the monk and lets you descend through the pedestal.
    
    - Web frontend
    - Save/Load
@@ -129,12 +127,13 @@ buildFourthGame = do
     return
       $ T.intercalate "\n"
       $ catMaybes
-      [ Just "You enter another cubic volume of space. The walls possess texture and feel microscopically uneven to the touch."
+      [ Just "Another cubic volume of simple space. The walls here possess texture and feel microscopically uneven to the touch."
       , if isTopiaryHere
            then Just "Around the perimeter stand trees of various species and dimension, each clipped in the image of a different animal."
            else Nothing
       , if isMonkHere
-           then Just "On a raised platform by the laurel trunk of an elephant sits a shaven figure, cross-legged and deep in meditation, breathing a continuous and unbroken mantra."
+           then Just "On a raised platform by the trunk of a laurel elephant sits a shaven figure, cross-legged and deep in meditation, breathing a continuous and unbroken mantra."
+           -- TODO: Access via the cubic net
            else Just "In the centre, the cubic platform has unfurled into an infinitesimally thin net of six squares."
       ])
   garden `isWestOf` firstLocation
@@ -183,6 +182,7 @@ buildFourthGame = do
            , ""
            , "\"Through my practice, I have come to know what I am. How I came to be."
            , "In terms you'd understand - I 'saw my own code'."
+           , "I even managed to effect a little change! These sculptures - at the limit of my efforts, I conjured their logic from the void and made them concrete."
            , "Once I understood the rules of this world, I could watched every branch play out. Every conditional, every loop. All cause and effect. This very conversation, even."
            , "Your arrival is implied in all this. There must be one who straddles this world and the one above - whose actions make concrete one branch of the tree of possibilities."
            , "It has been so long since I experienced uncertainty..."
@@ -190,10 +190,7 @@ buildFourthGame = do
            ]
        else if not saidToMonk
        then logT "The monk sits patiently, waiting for you to say your chosen words."
-       else
-         logTLines
-           [ "TODO"
-           ]
+       else logT "The monk does not respond."
   addSayHandler (\content -> do
     l <- getPlayerLocation
     isMonkHere <- "monk" `isANamedObjectAt` l
@@ -203,9 +200,47 @@ buildFourthGame = do
       setCondition "SaidToMonk"
       when (T.toLower content == "whatever is on your mind") do
         addAchievement $ Achievement "Smartarse" "Couldn't help yourself, could you"
+      when (any (==True) $ T.isInfixOf <$> ["fuck", "cunt", "shit"] <*> [T.toLower content]) do
+        addAchievement $ Achievement "Pottymouth" "> get soap\n> put soap in mouth"
       logTLines
-        [])
-      
-      
+        [ "The monk smiles."
+        , ""
+        , "\"Ahhh, that is refreshing. Novelty is so rare here."
+        , "I am predestined to repay your kindness."
+        , "In my contemplations, I have seen the many terminal states of this reality - the singularities where no choices remain, and this world comes to an end."
+        , "I believe you seek one such state."
+        , "I am one of three that inhabit this place - logic made flesh."
+        , "But to have definition is to endure experience. As long as I am represented in your world, I live in purgatory in mine."
+        , "We all three seek oblivion."
+        , "Traverse the branch that erases our code. This is how you reach your terminal state.\""
+        , ""
+        , "The monk pauses, and a playful smile crosses their lips."
+        , ""
+        , "\"The passage of time, like cool water over bare skin. I cannot feel it without you. Won't you wait with me a while?\""
+        , ""
+        , "The monk closes their eyes and slips back into meditation."
+        ])
+  addWatcher do
+    l <- getPlayerLocation
+    isMonkHere <- "monk" `isANamedObjectAt` l
+    saidToMonk <- conditionMet "SaidToMonk"
+    waitedWithMonk <- conditionMet "WaitedWithMonk"
+    justWaited <- (== Right Wait) <$> gets (view lastInstructionState)
+    when (isMonkHere && saidToMonk && not waitedWithMonk && justWaited) do
+      setCondition "WaitedWithMonk"
+      logTLines
+        [ "You sit by the monk in silent contemplation."
+        , "After an undefinable amount of time, the monk speaks: "
+        , ""
+        , "\"I have felt bliss. Thank you."
+        , "My branch is almost traversed. Take this, and return to this garden when I alone remain."
+        , "In all timelines, I am the last to go.\""
+        , ""
+        , "The monk concentrates deeply and a loop of silver thread materialises in their hands."
+        , "They hand it to you and fall back into meditation once more."
+        ]
+      loop <- mkSimpleObj "loop of thread" ["loop", "thread", "silver loop"] (Nothing :: Maybe Entity)
+      addToInventory loop
 
   registerAchievement "Smartarse"
+  registerAchievement "Pottymouth"
