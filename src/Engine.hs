@@ -68,7 +68,7 @@ describeCurrentTurn = do
   clock <- gets (view clock)
   lDesc <- getDescription $ l^.?entityID
   alertsMap <- gets (view alerts)
-  let header = Just $ "\n" <> T.toUpper (l^.?name) <> "\n=========="
+  let header = Just $ "\n" <> T.toUpper (l^.?name) <> "\n" <> T.replicate (T.length $ l^.?name) "="
       desc = Just lDesc
       alerts = case snd <$> M.toList alertsMap of
                  [] -> Nothing
