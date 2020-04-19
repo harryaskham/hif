@@ -186,6 +186,5 @@ main = hspec do
         , "u"
         , "s"
         , "break loop"
-        -- TODO: somehow this doesnt work and is leaving the thread in inv only in tests
         ]
         [ flushLog >> isNothing <$> getEntityByName SimpleObj "loop of thread" ]
