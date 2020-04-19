@@ -113,6 +113,9 @@ type OpenHandler = Entity -> App ()
 logT :: Text -> App ()
 logT t = modify $ over outLines (t:)
 
+logTLines :: [Text] -> App ()
+logTLines = logT . T.intercalate "\n"
+
 flushLog :: App ()
 flushLog = do
   ls <- gets (view outLines)

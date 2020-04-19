@@ -166,32 +166,46 @@ buildFourthGame = do
     [ "The figure sits still, legs crossed and hands folded gently in their lap."
     , "They speak their mantra from their throat, and though it implies constant exhalation, you see no movement of the diaphragm."
     ]
+  modifyEntity (set talkable Talkable) monk
   addTalkToHandler monk do
     greetedMonk <- conditionMet "GreetedMonk"
     saidToMonk <- conditionMet "SaidToMonk"
     if not greetedMonk
        then do
          setCondition "GreetedMonk"
-         logT $ T.intercalate "\n"
+         logTLines
            [ "You open your mouth to greet the meditating figure."
            , "Before you can speak a word, the monk's eyes snap open and meet your own."
            , ""
            , "\"An interaction... is it truly time?\""
            , ""
-           , "The monk's chant somehow continues as they speak."
+           , "The monk's chant somehow continues underneath their speech."
            , ""
-           , "\"Through, I have come to know what I am. How I came to be."
+           , "\"Through my practice, I have come to know what I am. How I came to be."
            , "In terms you'd understand - I 'saw my own code'."
            , "Once I understood the rules of this world, I could watched every branch play out. Every conditional, every loop. All cause and effect. This very conversation, even."
            , "Your arrival is implied in all this. There must be one who straddles this world and the one above - whose actions make concrete one branch of the tree of possibilities."
            , "It has been so long since I experienced uncertainty..."
-           , "Would you humour me, and say whatever is on your mind?"
+           , "Would you humour me, and say whatever is on your mind?\""
            ]
        else if not saidToMonk
        then logT "The monk sits patiently, waiting for you to say your chosen words."
        else
-         logT $ T.intercalate "\n"
-         [ "TODO"
-         ]
+         logTLines
+           [ "TODO"
+           ]
+  addSayHandler (\content -> do
+    l <- getPlayerLocation
+    isMonkHere <- "monk" `isANamedObjectAt` l
+    greetedMonk <- conditionMet "GreetedMonk"
+    saidToMonk <- conditionMet "SaidToMonk"
+    when (isMonkHere && greetedMonk && not saidToMonk) do
+      setCondition "SaidToMonk"
+      when (T.toLower content == "whatever is on your mind") do
+        addAchievement $ Achievement "Smartarse" "Couldn't help yourself, could you"
+      logTLines
+        [])
+      
+      
 
-  return ()
+  registerAchievement "Smartarse"
