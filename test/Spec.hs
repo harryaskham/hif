@@ -218,7 +218,7 @@ main = hspec do
         , getOneEntityByName SimpleObj "marker pen" >>= inPlayerInventory
         ]
 
-    it "can reach the grating" do
+    it "can reach the grating but cant pass" do
       checkPreds
         buildFourthGame
         [ "n"
@@ -243,5 +243,42 @@ main = hspec do
         , "w"
         , "d"
         , "w"
+        , "talk to monk"
+        , "d"
         ]
-        [ flushLog ]
+        [ (==Left InstructionError) <$> gets (view lastInstructionState) ]
+
+    it "can win" do
+      checkPreds
+        buildFourthGame
+        [ "n"
+        , "w"
+        , "look at trees"
+        , "get paw"
+        , "talk to monk"
+        , "say wooooo"
+        , "wait"
+        , "e"
+        , "u"
+        , "look at shelves"
+        , "get book"
+        , "s"
+        , "break loop"
+        , "talk to man"
+        , "n"
+        , "e"
+        , "talk to woman"
+        , "give cleaver to woman"
+        , "give paw to woman"
+        , "look at cupboard"
+        , "get outfit"
+        , "w"
+        , "d"
+        , "w"
+        , "talk to monk"
+        , "remove clothes"
+        , "wear outfit"
+        , "use pen on book"
+        , "d"
+        ]
+        [ flushLog >> gets (view gameOver) ]

@@ -45,6 +45,8 @@ buildFourthGame = do
   -- TODO: Might require object registry at this point because IDs seem to be overlapping
   mkSimpleObj "human hand" ["hand", "human hand"] (Nothing :: Maybe Entity)
   mkSimpleObj "paw" ["paw"] (Nothing :: Maybe Entity)
+  mkSimpleObj "terrible outfit" ["outfit"] (Nothing :: Maybe Entity)
+  mkSimpleObj "book named for you" ["book"] (Nothing :: Maybe Entity)
 
   mainMenu <- mkLocation "Main Menu"
   describeC mainMenu
@@ -189,7 +191,7 @@ buildFourthGame = do
                   defacedBook <- mkSimpleObj "defaced book" ["book", "defaced book"] (Nothing :: Maybe Entity)
                   addToInventory defacedBook
                   describeC defacedBook "It's the formal system that defines you/them, but you've changed the name on the spine. They feel some agency returning as they read it."
-                  addAlert "BookDefaced" "The book now defaced, you see flashes of a computer screen covered in text overlaying your vision."))
+                  addAlert "BookDefaced" "The book now defaced, they cannot be connected to you; you see flashes of a computer screen covered in text overlaying their vision."))
 
             return $ Just "You notice that one of the bonobo's paws has splintered, and could easily be broken away from its tree.")
     return
@@ -236,7 +238,7 @@ buildFourthGame = do
        then logT "The monk does not respond."
        else do
          clothesCond <- conditionMet "RemovedClothes"
-         outfitCond <- conditionMet "WorkOutfit"
+         outfitCond <- conditionMet "WornOutfit"
          bookCond <- conditionMet "BookDefaced"
          let numComplete = length $ filter (==True) [clothesCond, outfitCond, bookCond]
          when (numComplete == 3) (addAchievement $ Achievement "Model Student" "Decohered fully before meeting the monk")
@@ -261,7 +263,7 @@ buildFourthGame = do
            , Just "The monk smiles peacefully, and is deleted."
            ]
          removeEntity monk
-         grating <- mkLocation "through the grating"
+         grating <- mkLocation "the grating"
          grating `isBelow` garden
          addWatcher do
            p <- getPlayer
@@ -353,7 +355,7 @@ buildFourthGame = do
       , cT (not musicOff) "You hear sub-bass oscillations spilling out from the South."
       ])
 
-  bookshelf <- mkSimpleObj "bookshelf" ["books", "bookshelf", "shelf"] (Just library)
+  bookshelf <- mkSimpleObj "bookshelf" ["books", "bookshelf", "shelf", "shelves"] (Just library)
   describe bookshelf (\e -> do
     bookLine <-
       ifM (conditionMet "LookedAtBookshelf")
@@ -361,7 +363,8 @@ buildFourthGame = do
           (do
             setCondition "LookedAtBookshelf"
             library <- getLocationByName "library"
-            book <- mkSimpleObj "book named for you" ["book"] (Just library)
+            book <- getOneEntityByName SimpleObj "book named for you"
+            modifyEntity (set locationID (Just $ library^.?entityID)) book
             describeC book "The book's title and your name are one and the same. The relationships and invariants laid out in its pages are meaningless to you."
             modifyEntity (set storable Storable) book
             return $ Just "As you scan the shelves you notice that one of the books bears your full name on its spine.")
@@ -527,7 +530,8 @@ buildFourthGame = do
           (do
             setCondition "LookedAtCupboard"
             dressingRoom <- getLocationByName "dressing room"
-            outfit <- mkSimpleObj "terrible outfit" ["outfit"] (Just dressingRoom)
+            outfit <- getOneEntityByName SimpleObj "terrible outfit"
+            modifyEntity (set locationID (Just $ dressingRoom^.?entityID)) outfit
             describeC outfit "Imagine the outfit that you're least likely ever to wear. Completely antithetical to your sense of taste. It's that."
             modifyEntity (set storable Storable) outfit
             modifyEntity (set wearable Wearable) outfit
@@ -547,11 +551,11 @@ buildFourthGame = do
     wearing <- p `isWearing` clothes
     if wearing
        then do
-         conditionMet "RemovedClothes"
-         addAlert "RegularClothes" "You are not wearing the clothes you are wearing. The decoherence causes your vision to blur."
-       else do
          removeCondition "RemovedClothes"
          removeAlert "RegularClothes"
+       else do
+         setCondition "RemovedClothes"
+         addAlert "RegularClothes" "You are no longer wearing the clothes that you are actually wearing. The decoherence causes your vision to blur."
 
   addWatcher do
     outfit <- getOneEntityByName SimpleObj "terrible outfit"
@@ -559,18 +563,18 @@ buildFourthGame = do
     wearing <- p `isWearing` outfit
     if wearing
        then do
-         conditionMet "WornOutfit"
-         addAlert "Outfit" "Wearing the outfit, they look nothing like you. The dissonance dries your mouth."
+         setCondition "WornOutfit"
+         addAlert "Outfit" "Now wearing that outfit, they look nothing like you. The dissonance dries your mouth."
        else do
-         removeCondition "WorkOutfit"
+         removeCondition "WornOutfit"
          removeAlert "Outfit"
 
   addWatcher do
     clothesCond <- conditionMet "RemovedClothes"
-    outfitCond <- conditionMet "WorkOutfit"
+    outfitCond <- conditionMet "WornOutfit"
     bookCond <- conditionMet "BookDefaced"
     garden <- getLocationByName "topiary garden"
-    grating <- getLocationByName "through the grating"
+    grating <- getLocationByName "the grating"
     let numComplete = length $ filter (==True) [clothesCond, outfitCond, bookCond]
     if numComplete == 3
        then modifyEntity (set toDown (Just $ grating^.?entityID)) garden

@@ -217,7 +217,7 @@ parseCombine = do
   spaces
   target1 <- many1 letter
   spaces
-  string "in" <|> string "with" <|> string "and"
+  string "in" <|> string "with" <|> string "and" <|> string "on"
   spaces
   target2 <- many1 letter
   eof
@@ -260,7 +260,7 @@ instructionParser =
   <|> try parseWait
   <|> try parseLook
   <|> try parseLookAt
-  <|> try parseUse
+  -- <|> try parseUse
   <|> try parseTurnOn
   <|> try parseTurnOff
   <|> try parseHelp
@@ -323,11 +323,13 @@ enactInstruction i@Help = do
                 , "You can also go 'up' and 'down'."
                 , "If nothing is happening, just 'wait'"
                 , "'eat' and 'drink' stuff! 'wear' or 'remove' stuff! 'look at' stuff! 'use' stuff!"
+                , "'use X on Y' is also a thing"
                 , "Forget where you are? 'look'!"
                 , "'talk to' the people you meet!"
                 , "'turn on' stuff! 'turn off' stuff!"
                 , "'put X in Y' or 'combine X with Y' if you think that's a good idea"
                 , "'break' things if you like"
+                , "'give X to Y' works too!"
                 , "'say' something to say it out loud"
                 , "'get thing' and 'drop thing', and 'i' or 'inventory' to see what you've got"
                 , "Did ya fuck something up? 'undo' to go back a step!"
