@@ -186,5 +186,8 @@ main = hspec do
         , "u"
         , "s"
         , "break loop"
+        , "talk to man"
         ]
-        [ flushLog >> isNothing <$> getEntityByName SimpleObj "loop of thread" ]
+        [ isNothing <$> getEntityByName SimpleObj "loop of thread"
+        , getOneEntityByName SimpleObj "cleaver" >>= inPlayerInventory
+        ]

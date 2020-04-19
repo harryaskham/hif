@@ -354,5 +354,14 @@ buildFourthGame = do
          terrifiedMan <- getOneEntityByName SimpleObj "terrified man"
          removeEntity terrifiedMan
 
+  -- TODO:
+  -- location east of lib
+  -- suicide guy is there
+  -- give cleaver for wrists
+  -- takes off hand
+  -- give paw
+  -- replaces it
+  -- add watcher for return to the monk
+
   registerAchievement "Smartarse"
   registerAchievement "Pottymouth"
