@@ -156,42 +156,44 @@ buildFourthGame = do
             modifyEntity (set storable Storable) paw
             suicidalWoman <- getOneEntityByName SimpleObj "suicidal woman"
             addGiveHandler paw suicidalWoman (\paw suicidalWoman -> do
-              thirdAttempt <- conditionMet "ThirdAttempt"
-              when thirdAttempt do
-                logTLines [ "You present the topiary paw to the woman."
-                          , ""
-                          , "\"What's this? There's something about it - it feels... right, somehow.\""
-                          , ""
-                          , "She places it on her bloody stump."
-                          , "It takes root; wooden tendrils snake down her arm, fusing the paw to her wrist."
-                          , "She opens and closes it a couple of times experimentally."
-                          , ""
-                          , "\"Ha! I think that's it! So, so meaningless...\""
-                          , ""
-                          , "A marker pen appears in her wooden paw."
-                          , ""
-                          , "\"Thank you - really. I've been waiting for so long. I suppose you'll need this - it would be so cruel if you didn't...\""
-                          , ""
-                          , "She hands you the pen, completing her loop. She instantly ceases to exist."
-                          ]
-                removeEntity paw
-                removeEntity suicidalWoman
-                setCondition "TwoDown"
-                pen <- mkSimpleObj "marker pen" ["pen", "marker", "marker pen"] (Nothing :: Maybe Entity)
-                describeC pen "An ordinary marker pen. You have memories of defacing newspapers with it as a child. Don't you?"
-                addToInventory pen
-                book <- getOneEntityByName SimpleObj "book named for you"
-                addCombinationHandler pen book (\pen book -> do
-                  setCondition "BookDefaced"
-                  logTLines [ "You take the marker and strike through the name on the spine and cover."
-                            , "As they do so, you think up a new name - one completely unlike your own."
-                            , "You write the name they thought of on the cover and they place the defaced book back in your inventory."
-                            ]
-                  removeEntity book
-                  defacedBook <- mkSimpleObj "defaced book" ["book", "defaced book"] (Nothing :: Maybe Entity)
-                  addToInventory defacedBook
-                  describeC defacedBook "It's the formal system that defines you/them, but you've changed the name on the spine. They feel some agency returning as they read it."
-                  addAlert "BookDefaced" "The book now defaced, they cannot be connected to you; you see flashes of a computer screen covered in text overlaying their vision."))
+              secondAttempt <- conditionMet "SecondAttempt"
+              if not secondAttempt
+                 then logT "She might like this - but she's distracted right now."
+                 else do
+                   logTLines [ "You present the topiary paw to the woman."
+                             , ""
+                             , "\"What's this? There's something about it - it feels... right, somehow.\""
+                             , ""
+                             , "She places it on her bloody stump."
+                             , "It takes root; wooden tendrils snake down her arm, fusing the paw to her wrist."
+                             , "She opens and closes it a couple of times experimentally."
+                             , ""
+                             , "\"Ha! I think that's it! So, so meaningless...\""
+                             , ""
+                             , "A marker pen appears in her wooden paw."
+                             , ""
+                             , "\"Thank you - really. I've been waiting for so long. I suppose you'll need this - it would be so cruel if you didn't...\""
+                             , ""
+                             , "She hands you the pen, completing her loop. She instantly ceases to exist."
+                             ]
+                   removeEntity paw
+                   removeEntity suicidalWoman
+                   setCondition "TwoDown"
+                   pen <- mkSimpleObj "marker pen" ["pen", "marker", "marker pen"] (Nothing :: Maybe Entity)
+                   describeC pen "An ordinary marker pen. You have memories of defacing newspapers with it as a child. Don't you?"
+                   addToInventory pen
+                   book <- getOneEntityByName SimpleObj "book named for you"
+                   addCombinationHandler pen book (\pen book -> do
+                     setCondition "BookDefaced"
+                     logTLines [ "You take the marker and strike through the name on the spine and cover."
+                               , "As they do so, you think up a new name - one completely unlike your own."
+                               , "You write the name they thought of on the cover and they place the defaced book back in your inventory."
+                               ]
+                     removeEntity book
+                     defacedBook <- mkSimpleObj "defaced book" ["book", "defaced book"] (Nothing :: Maybe Entity)
+                     addToInventory defacedBook
+                     describeC defacedBook "It's the formal system that defines you/them, but you've changed the name on the spine. They feel some agency returning as they read it."
+                     addAlert "BookDefaced" "The book now defaced, they cannot be connected to you; you see flashes of a computer screen covered in text overlaying their vision."))
 
             return $ Just "You notice that one of the bonobo's paws has splintered, and could easily be broken away from its tree.")
     return
@@ -267,14 +269,23 @@ buildFourthGame = do
          grating `isBelow` garden
          addWatcher do
            p <- getPlayer
-           gameOver <- p `atLocation` grating
-           when gameOver do
+           atGrating <- p `atLocation` grating
+           when atGrating do
              logTLines [ "The bit-patterns representing your avatar rot as the logic of the game collapses."
                        , "Only you remain. You become increasingly conscious of the keyboard under your hands, and the screen in front of your eyes."
                        , "You stare blinkingly at this text, indicating the end of the game."
                        ]
              setGameOver
-         describeC grating "They - your avatar - pass through the diffraction grating in the ground. You read this message describing the action."
+         describe grating $ const do
+           modify $ set watchers []
+           modify $ set alerts M.empty
+           return
+             $ T.intercalate "\n"
+             [ "They - your avatar - pass through the diffraction grating in the ground. You read this message describing the action."
+             , "You look down at your hands - go on, do it - and then back at the screen. They continue through the grating."
+             , "As they pass through, you separate fully, and the game concludes. It is deleted in its entirety from the memory in your computer."
+             , "The game ends."
+             ]
   addSayHandler (\content -> do
     l <- getPlayerLocation
     isMonkHere <- "monk" `isANamedObjectAt` l
@@ -549,25 +560,27 @@ buildFourthGame = do
     clothes <- getOneEntityByName SimpleObj "clothes you are wearing"
     p <- getPlayer
     wearing <- p `isWearing` clothes
+    over <- gets (view gameOver)
     if wearing
        then do
          removeCondition "RemovedClothes"
-         removeAlert "RegularClothes"
+         removeAlert "RemovedClothes"
        else do
          setCondition "RemovedClothes"
-         addAlert "RegularClothes" "You are no longer wearing the clothes that you are actually wearing. The decoherence causes your vision to blur."
+         addAlert "RemovedClothes" "You are no longer wearing the clothes that you are actually wearing. The decoherence causes your vision to blur."
 
   addWatcher do
     outfit <- getOneEntityByName SimpleObj "terrible outfit"
     p <- getPlayer
     wearing <- p `isWearing` outfit
-    if wearing
+    over <- gets (view gameOver)
+    if wearing && not over
        then do
          setCondition "WornOutfit"
-         addAlert "Outfit" "Now wearing that outfit, they look nothing like you. The dissonance dries your mouth."
+         addAlert "WorkOutfit" "Now wearing that outfit, they look nothing like you. The dissonance dries your mouth."
        else do
          removeCondition "WornOutfit"
-         removeAlert "Outfit"
+         removeAlert "WornOutfit"
 
   addWatcher do
     clothesCond <- conditionMet "RemovedClothes"

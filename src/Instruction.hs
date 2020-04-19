@@ -37,6 +37,7 @@ import Data.Char (isLetter, isDigit)
 runInstruction :: Text -> App ()
 runInstruction instructionText = do
   prevState <- get
+  isOver <- gets (view gameOver)
   case parseInstruction instructionText of
     (Just i) -> do
       -- Run the instruction and store its outcome
@@ -44,7 +45,7 @@ runInstruction instructionText = do
       modify $ set lastInstructionState instructionState
       -- End of turn stuff
       runWatchers
-      logT =<< describeCurrentTurn
+      unless isOver $ logT =<< describeCurrentTurn
       unless (i == Undo) $ modify $ over history (prevState:)
     Nothing -> logT "Invalid instruction"
 

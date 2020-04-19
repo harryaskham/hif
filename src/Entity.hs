@@ -189,6 +189,7 @@ allValidTargetedEntities :: Target -> App [Entity]
 allValidTargetedEntities t = do
   es1 <- getTargetedEntitiesNearPlayer t
   es2 <- filterInventoryByTarget t
+  es3 <- filterWearingByTarget t
   return $ es1 ++ es2
 
 -- Gets a single arbitrary match to the given target.
@@ -240,6 +241,9 @@ getPlayerWornEntities = do
 
 filterInventoryByTarget :: Target -> App [Entity]
 filterInventoryByTarget t = filterByTarget t <$> getInventoryEntities
+
+filterWearingByTarget :: Target -> App [Entity]
+filterWearingByTarget t = filterByTarget t <$> getPlayerWornEntities
 
 wearEntity :: (HasID e) => e -> App ()
 wearEntity e = do
