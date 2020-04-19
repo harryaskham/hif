@@ -265,3 +265,19 @@ getDescription e = do
   let d = fromMaybe (error $ "No desc for " ++ show eID) $ M.lookup eID ds
   freshE <- getEntity eID
   d freshE
+
+isNorthOf :: (HasID l1, HasID l2) => l1 -> l2 -> App ()
+isNorthOf target = modifyEntity (set toNorth (Just $ getID target))
+
+atLocation :: (HasID l, HasID e) => e -> l -> App Bool
+atLocation e l = do
+  e <- getEntity (getID e)
+  return $ e^.locationID == (Just $ getID l)
+
+isANamedObjectAt :: (HasID l) => Name -> l -> App Bool
+isANamedObjectAt n l = do
+  eM <- getEntityByName SimpleObj n
+  case eM of
+    Nothing -> return False
+    Just e -> e `atLocation` l
+
