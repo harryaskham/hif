@@ -65,6 +65,9 @@ addDrinkHandler e h = modify $ over drinkHandlers (M.insert (getID e) h)
 addOpenHandler :: (HasID e) => e -> OpenHandler -> App ()
 addOpenHandler e h = modify $ over openHandlers (M.insert (getID e) h)
 
+addBreakHandler :: (HasID e) => e -> BreakHandler -> App ()
+addBreakHandler e h = modify $ over breakHandlers (M.insert (getID e) h)
+
 addSayHandler :: SayHandler -> App ()
 addSayHandler h = modify $ over sayHandlers (h:)
 

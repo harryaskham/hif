@@ -240,6 +240,20 @@ buildFourthGame = do
         ]
       loop <- mkSimpleObj "loop of thread" ["loop", "thread", "silver loop"] (Nothing :: Maybe Entity)
       addToInventory loop
+      addBreakHandler loop (\e -> do
+        dancehall <- getLocationByName "dancehall"
+        atDancehall <- p `atLocation` dancehall
+        isBroken <- conditionMet "BrokenLoop"
+        if (not isBroken && atDancehall)
+           then do
+             setCondition "BrokenLoop"
+             logTLines
+               [ "Pulling at the silver thread the monk gave you, you succeed in breaking the loop."
+               , "The music shuts off, and the strobing gives way to light of a constant warm temperature."
+               , "The man in the corner shouts his surprise."
+               ]
+             removeEntity e
+           else logT "You try to break the silver thread, but you are compelled to stop by some external force of logic.")
 
   library <- mkLocation "library"
   library `isAbove` firstLocation
@@ -279,13 +293,16 @@ buildFourthGame = do
   library `isNorthOf` dancehall
   describe dancehall (\e -> do
     cowardHere <- "terrified man" `isANamedObjectAt` e
+    isBroken <- conditionMet "BrokenLoop"
     return
       $ T.intercalate "\n"
       $ catMaybes
-      [ Just "A single bar of deafening techno plays from an unseen source."
-      , Just "The light strobes instantaneously between pitch blackness and absolute illumination in perfect synchrony with the music."
-      , cT cowardHere "Through the pulsing, you see a terrified man sat in the corner of the room, wide-eyed, rocking backwards and forwards."
-      , cT cowardHere "He seems to be staring at you in horror."
+      [ cT (not isBroken) "A single bar of deafening techno plays from an unseen source."
+      , cT (not isBroken) "The light strobes instantaneously between pitch blackness and absolute illumination in perfect synchrony with the music."
+      , cT isBroken "The music has stopped, and the light is a pleasant halcyon."
+      , cT (not isBroken && cowardHere) "Through the pulsing, you see a terrified man sat in the corner of the room, wide-eyed, rocking backwards and forwards."
+      , cT (not isBroken && cowardHere) "He seems to be staring at you in horror."
+      , cT (isBroken && cowardHere) "The man stares at you in wonderment."
       ])
 
   terrifiedMan <- mkSimpleObj "terrified man" ["man", "terrified man", "person"] (Just dancehall)

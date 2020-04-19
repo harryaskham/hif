@@ -61,6 +61,7 @@ data GameState =
     , _eatHandlers :: Map EntityID (Entity -> Stack GameState ())
     , _drinkHandlers :: Map EntityID (Entity -> Stack GameState ())
     , _openHandlers :: Map EntityID (Entity -> Stack GameState ())
+    , _breakHandlers :: Map EntityID (Entity -> Stack GameState ())
     , _outLines :: [Text]
     , _lastInstructionState :: Either InstructionError Instruction
     , _conditions :: Set Condition
@@ -86,6 +87,7 @@ mkGameState = GameState { _entities=M.empty
                         , _eatHandlers=M.empty
                         , _drinkHandlers=M.empty
                         , _openHandlers=M.empty
+                        , _breakHandlers=M.empty
                         , _outLines=[]
                         , _lastInstructionState=Left InstructionError  -- TODO: woops
                         , _conditions=S.empty
@@ -106,6 +108,7 @@ type CombinationHandler = Entity -> Entity -> App ()
 type EatHandler = Entity -> App ()
 type DrinkHandler = Entity -> App ()
 type OpenHandler = Entity -> App ()
+type BreakHandler = Entity -> App ()
 
 -- Output text to the screen within the Monad stack
 -- TODO: This would work better with Endo or RState

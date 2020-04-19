@@ -21,6 +21,7 @@ import Data.Text (Text)
 import Control.Monad.State
 import Control.Lens
 import Data.Either
+import Data.Maybe
 
 -- Run the game with the given commands
 withCmds :: [Text] -> App ()
@@ -160,3 +161,31 @@ main = hspec do
         , "wait"
         ]
         [ getOneEntityByName SimpleObj "loop of thread" >>= inPlayerInventory ]
+
+    it "cant break the loop elsewhere" do
+      checkPreds
+        buildFourthGame
+        [ "n"
+        , "w"
+        , "talk to monk"
+        , "say wooooo"
+        , "wait"
+        , "break loop"
+        ]
+        [ getOneEntityByName SimpleObj "loop of thread" >>= inPlayerInventory ]
+
+    it "can break the loop with the terrified man" do
+      checkPreds
+        buildFourthGame
+        [ "n"
+        , "w"
+        , "talk to monk"
+        , "say wooooo"
+        , "wait"
+        , "e"
+        , "u"
+        , "s"
+        , "break loop"
+        -- TODO: somehow this doesnt work and is leaving the thread in inv only in tests
+        ]
+        [ flushLog >> isNothing <$> getEntityByName SimpleObj "loop of thread" ]

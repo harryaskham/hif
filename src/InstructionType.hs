@@ -66,6 +66,7 @@ data Instruction = Go Direction
                  | Help
                  | Undo
                  | OpenI Target
+                 | Break Target
                  | Say Text
                  deriving (Eq)
 

@@ -129,6 +129,14 @@ parseOpen = do
   eof
   return $ OpenI (T.pack target)
 
+parseBreak :: Parser Instruction
+parseBreak = do
+  string "break"
+  spaces
+  target <- many1 anyChar
+  eof
+  return $ Break (T.pack target)
+
 parseWait :: Parser Instruction
 parseWait = do
   string "wait" <|> string "do nothing"
@@ -252,6 +260,7 @@ instructionParser =
   <|> try parseRemove
   <|> try parseUndo
   <|> try parseOpen
+  <|> try parseBreak
   <|> try parseSay
 
 -- Parse out the instruction from the given text string
@@ -361,6 +370,22 @@ enactInstruction i@(OpenI target) = do
       case M.lookup (e^.?entityID) hs of
         Nothing -> do
           logT $ (e^.?name) <> " cannot be opened"
+          return $ Left InstructionError
+        Just h -> do
+          h e
+          return $ Right i
+
+enactInstruction i@(Break target) = do
+  eM <- oneValidTargetedEntity target
+  case eM of
+    Nothing -> do
+      logT $ "No " <> target <> " to break."
+      return $ Left InstructionError
+    Just e -> do
+      hs <- gets (view breakHandlers)
+      case M.lookup (e^.?entityID) hs of
+        Nothing -> do
+          logT $ (e^.?name) <> " cannot be broken."
           return $ Left InstructionError
         Just h -> do
           h e
