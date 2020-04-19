@@ -39,8 +39,9 @@ runApp = do
          else do
            -- Get input and run instruction. Store the old state for UNDO purposes.
            prevState <- get
-           liftIO $ TIO.putStr "> "
+           liftIO $ TIO.putStr "\n> "
            instruction <- liftIO TIO.getLine
+           liftIO $ TIO.putStr "\n"
            runInstruction instruction
            loop
 

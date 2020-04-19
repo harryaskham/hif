@@ -229,8 +229,8 @@ buildFourthGame = do
            , "\"Through my practice, I have come to know what I am. How I came to be."
            , "In terms you'd understand - I 'saw my own code'."
            , "I even managed to effect a little change! These sculptures - at the limit of my efforts, I conjured their logic from the void and made them concrete."
-           , "Once I understood the rules of this world, I could watched every branch play out. Every conditional, every loop. All cause and effect. This very conversation, even."
-           , "Your arrival is implied in all this. There must be one who straddles this world and the one above - whose actions make concrete one branch of the tree of possibilities."
+           , "Once I understood the rules of this world, I watched every branch play out. Every conditional, every loop. All cause and effect. This very conversation, even."
+           , "Your arrival was implied in all this: there must be one who straddles this world and the one above - whose actions make concrete one branch of the tree of possibilities."
            , "It has been so long since I experienced uncertainty..."
            , "Would you humour me, and say whatever is on your mind?\""
            ]
@@ -335,6 +335,7 @@ buildFourthGame = do
         , "They hand it to you and fall back into meditation once more."
         ]
       loop <- mkSimpleObj "loop of thread" ["loop", "thread", "silver loop"] (Nothing :: Maybe Entity)
+      describeC loop "A silver loop of thread. It is fragile, and would break apart easily."
       addToInventory loop
       addBreakHandler loop (\e -> do
         dancehall <- getLocationByName "dancehall"
@@ -428,7 +429,7 @@ buildFourthGame = do
                      , ""
                      , "He loses himself in thought for a few seconds, and then seems to remember your presence:"
                      , ""
-                     , "You! Unbound by physics, by logic - oh fuck, you could exact such tortures on me, fuck my core logic right up... away!\""
+                     , "\"You! Unbound by physics, by logic - oh fuck, you could exact such tortures on me, fuck my core logic right up... away!\""
                      ]
        else do
          logTLines [ "\"... I'm fucking free..."
@@ -529,7 +530,7 @@ buildFourthGame = do
                    , "Before you can intervene, she jumps back up on the stool, outstretches her arms and leaps backward in a flawless swan dive."
                    , "She comes down vertically on her head, and her neck disappears into her torso with a sick crackle."
                    , ""
-                   , "Once again, she reappears alive in the centre of the room"
+                   , "Once again, she reappears alive in the centre of the room."
                    ]
        else logT "You try to speak, but she looks you over and dismisses you as no help at all."
 
