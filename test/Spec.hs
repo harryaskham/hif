@@ -6,6 +6,7 @@ import Tools
 import EntityType
 import GameState
 import CovidGame
+import FourthGame
 import Engine
 import Entity
 import Instruction
@@ -132,3 +133,17 @@ main = hspec do
         , "talk to man"
         ]
         [ (==Left InstructionError) <$> gets (view lastInstructionState) ]
+
+  describe "FourthGame" do
+    it "can do a bunch of things to the item" do
+      sequence_
+        $ checkPreds buildFourthGame
+        <$> [ [ "n", "get item" ]
+            , [ "n", "talk to item" ]
+            , [ "n", "eat item" ]
+            , [ "n", "drink item" ]
+            , [ "n", "use item" ]
+            , [ "n", "turn on item" ]
+            , [ "n", "turn off item" ]
+            ]
+        <*> pure [ (==Right ()) <$> gets (view lastInstructionState) ]

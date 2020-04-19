@@ -115,5 +115,7 @@ buildFourthGame = do
   addTurnOnHandler item (const $ logT "You prod at the item until you are satisfied that you have activated it in some way, although no chance in its appearance has occurred.")
   addTurnOffHandler item (const $ logT "You will the item to still itself. It remains dormant.")
   addUseHandler item (const $ logT "You make use of the item in the usual way. It appears that nothing is programmed to happen.")
+  addEatHandler item (const $ logT "You bite off a chunk of the item and swallow. No matter how much you consume, it gets no smaller and your hunger is no further sated.")
+  addDrinkHandler item (const $ logT "You place the item to your lips and attempt to take a swig. As you imagine flavourless liquid pouring forth from the item, so can you feel the sensation of your thirst being slaked.")
 
   return ()
