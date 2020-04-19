@@ -253,6 +253,8 @@ buildFourthGame = do
                , "The man in the corner shouts his surprise."
                ]
              removeEntity e
+             modifyEntity (set toEast Nothing) dancehall
+             modifyEntity (set toWest Nothing) dancehall
            else logT "You try to break the silver thread, but you are compelled to stop by some external force of logic.")
 
   library <- mkLocation "library"
@@ -291,6 +293,8 @@ buildFourthGame = do
   dancehall <- mkLocation "dancehall"
   dancehall `isSouthOf` library
   library `isNorthOf` dancehall
+  dancehall `isEastOf` dancehall
+  dancehall `isWestOf` dancehall
   describe dancehall (\e -> do
     cowardHere <- "terrified man" `isANamedObjectAt` e
     isBroken <- conditionMet "BrokenLoop"
@@ -299,6 +303,7 @@ buildFourthGame = do
       $ catMaybes
       [ cT (not isBroken) "A single bar of deafening techno plays from an unseen source."
       , cT (not isBroken) "The light strobes instantaneously between pitch blackness and absolute illumination in perfect synchrony with the music."
+      , cT (not isBroken) "You can see yourself infinitely through doors to both the East and the West that seem to be interconnected in a non-Euclidean loop."
       , cT isBroken "The music has stopped, and the light is a pleasant halcyon."
       , cT (not isBroken && cowardHere) "Through the pulsing, you see a terrified man sat in the corner of the room, wide-eyed, rocking backwards and forwards."
       , cT (not isBroken && cowardHere) "He seems to be staring at you in horror."
@@ -311,7 +316,7 @@ buildFourthGame = do
     if not isBroken
        then return $ T.intercalate "\n"
             [ "The man stares at you in horror and presses himself further into the wall as you near him."
-            , "Between gnashes of teeth he mutters something over and over, but you cannot hear him over the music."
+            , "Between gnashes of teeth he mutters something about being stuck in a loop, over and over."
             ]
        else return "The man appears dazed, in both relief and disbelief. He is staring at his outstretched hands, and standing now.")
   modifyEntity (set talkable Talkable) terrifiedMan
