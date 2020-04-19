@@ -31,6 +31,9 @@ import Data.Maybe
    - Second soul is trapped in a loop - you can only break by doing something other than talking to them. Snap the band hanging above them.
    - Third soul is trying continuously to commit suicide - find him hanging. Give him the cleaver to help him out, and he'll go straight through his hand. Now you can give him the paw.
    - Third guy gives you something for the monk, which disappears the monk and lets you descend through the pedestal.
+
+   - TO WIN: change appearance - you'd never wear these in real life - and change your name (erase the book)
+   - Suicidal woman gives you a pen
    
    - Web frontend
    - Save/Load
@@ -372,7 +375,7 @@ buildFourthGame = do
       $ T.intercalate "\n"
       $ catMaybes
       [ Just "A single wooden rafter crosses the otherwise immaculately white room."
-      , Just "An elaborate pine dresser stands with one door open - its insides seem impossibly spacious."
+      , Just "An elaborate pine cupboard stands with one door open - its insides seem impossibly spacious."
       , cT (isWomanHere && not firstAttempt) "A sad and sallow-faced woman meets your gaze as you enter.\nShe stands on a stubby footstool with a noose of rope around her neck.\nShe greets you with \"Hello\" before kicking the stool out from underneath herself.\n\nShe struggles for a couple of minutes, ceases to move, and then disappears, only to reappear alive in the centre of the room."
       , cT (isWomanHere && firstAttempt && not secondAttempt) "The woman paces idly, plotting her own demise, paying you little attention."
       ])
@@ -412,6 +415,28 @@ buildFourthGame = do
                    , "Once again, she reappears alive in the centre of the room"
                    ]
        else logT "You try to speak, but she looks you over and dismisses you as no help at all."
+
+  cupboard <- mkSimpleObj "cupboard" ["cupboard", "dresser"] (Just dressingRoom)
+  describe cupboard (\e -> do
+    outfitLine <-
+      ifM (conditionMet "LookedAtCupboard")
+          (return Nothing)
+          (do
+            setCondition "LookedAtCupboard"
+            dressingRoom <- getLocationByName "dressing room"
+            outfit <- mkSimpleObj "terrible outfit" ["outfit"] (Just dressingRoom)
+            describeC outfit "Imagine the outfit that you're least likely ever to wear. Completely antithetical to your sense of taste. It's that."
+            modifyEntity (set storable Storable) outfit
+            modifyEntity (set wearable Wearable) outfit
+            return $ Just "Within reach, it so happens, is an outfit that abhors you - one that you (yes, YOU, on the keyboard) wouldn't ever be seen in.")
+    return
+      $ T.intercalate "\n"
+      $ catMaybes
+      [ Just "You poke your head inside the cupboard."
+      , Just "You are paralysed by the scale - shelves and shelves of clothing stretch infinitely in at least three dimensions."
+      , Just "It is the Borges Library of clothing - every conceivable outfit exists somewhere in this plane."
+      , outfitLine
+      ])
     
   -- TODO:
   -- location east of lib
