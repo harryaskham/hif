@@ -191,3 +191,29 @@ main = hspec do
         [ isNothing <$> getEntityByName SimpleObj "loop of thread"
         , getOneEntityByName SimpleObj "cleaver" >>= inPlayerInventory
         ]
+
+    it "can get the pen" do
+      checkPreds
+        buildFourthGame
+        [ "n"
+        , "w"
+        , "look at trees"
+        , "get paw"
+        , "talk to monk"
+        , "say wooooo"
+        , "wait"
+        , "e"
+        , "u"
+        , "s"
+        , "break loop"
+        , "talk to man"
+        , "n"
+        , "e"
+        , "talk to woman"
+        , "give cleaver to woman"
+        , "give paw to woman"
+        ]
+        [ isNothing <$> getEntityByName SimpleObj "cleaver"
+        , isNothing <$> getEntityByName SimpleObj "paw"
+        , getOneEntityByName SimpleObj "marker pen" >>= inPlayerInventory
+        ]

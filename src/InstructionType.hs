@@ -61,6 +61,7 @@ data Instruction = Go Direction
                  | TurnOn Target
                  | TurnOff Target
                  | Combine Target Target
+                 | Give Target Target
                  | Wear Target
                  | Remove Target
                  | Help

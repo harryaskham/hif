@@ -223,6 +223,18 @@ parseCombine = do
   eof
   return $ Combine (T.pack target1) (T.pack target2)
 
+parseGive :: Parser Instruction
+parseGive = do
+  string "give"
+  spaces
+  target1 <- many1 letter
+  spaces
+  string "to"
+  spaces
+  target2 <- many1 letter
+  eof
+  return $ Give (T.pack target1) (T.pack target2)
+
 parseWear :: Parser Instruction
 parseWear = do
   string "wear"
@@ -256,6 +268,7 @@ instructionParser =
   <|> try parseEat
   <|> try parseDrink
   <|> try parseCombine
+  <|> try parseGive
   <|> try parseWear
   <|> try parseRemove
   <|> try parseUndo
@@ -594,6 +607,28 @@ enactInstruction i@(Combine t1 t2) = do
               case M.lookup (e1^.?entityID, e2^.?entityID) hs of
                 Nothing -> do
                   logT $ "Can't combine " <> (e1^.?name) <> " and " <> (e2^.?name)
+                  return $ Left InstructionError
+                Just h -> do
+                  h e1 e2
+                  return $ Right i
+
+enactInstruction i@(Give t1 t2) = do
+  eM1 <- oneValidTargetedEntity t1
+  eM2 <- oneValidTargetedEntity t2
+  if isNothing eM1
+     then do
+       logT $ "Don't know what " <> t1 <> " is"
+       return $ Left InstructionError
+     else if isNothing eM2 then do
+       logT $ "Don't know what " <> t2 <> " is"
+       return $ Left InstructionError
+     else let (Just e1) = eM1
+              (Just e2) = eM2
+           in do
+              hs <- gets (view giveHandlers)
+              case M.lookup (e1^.?entityID, e2^.?entityID) hs of
+                Nothing -> do
+                  logT $ "Can't give " <> (e1^.?name) <> " to " <> (e2^.?name)
                   return $ Left InstructionError
                 Just h -> do
                   h e1 e2

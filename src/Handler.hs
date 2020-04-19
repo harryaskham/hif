@@ -86,3 +86,9 @@ addCombinationHandler e1 e2 h = do
       eID2 = getID e2
   modify $ over combinationHandlers (M.insert (eID1, eID2) h)
   modify $ over combinationHandlers (M.insert (eID2, eID1) (flip h))
+
+addGiveHandler :: (HasID e) => e -> e -> GiveHandler -> App ()
+addGiveHandler e1 e2 h = do
+  let eID1 = getID e1
+      eID2 = getID e2
+  modify $ over giveHandlers (M.insert (eID1, eID2) h)

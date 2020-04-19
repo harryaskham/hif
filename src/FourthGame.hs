@@ -49,6 +49,10 @@ import Data.Maybe
 
 buildFourthGame = do
 
+  -- TODO: Might require object registry at this point because IDs seem to be overlapping
+  mkSimpleObj "human hand" ["hand", "human hand"] (Nothing :: Maybe Entity)
+  mkSimpleObj "paw" ["paw"] (Nothing :: Maybe Entity)
+
   mainMenu <- mkLocation "Main Menu"
   describeC mainMenu
     $ T.intercalate "\n"
@@ -149,9 +153,36 @@ buildFourthGame = do
           (do
             setCondition "LookedAtTopiaries"
             garden <- getLocationByName "topiary garden"
-            paw <- mkSimpleObj "paw" ["paw"] (Just garden)
+            paw <- getOneEntityByName SimpleObj "paw"
+            modifyEntity (set locationID (Just $ garden^.?entityID)) paw
             describeC paw "The clenched fist of a bonobo monkey, sculpted from the finer branches of a bay laurel."
             modifyEntity (set storable Storable) paw
+            suicidalWoman <- getOneEntityByName SimpleObj "suicidal woman"
+            addGiveHandler paw suicidalWoman (\paw suicidalWoman -> do
+              thirdAttempt <- conditionMet "ThirdAttempt"
+              when thirdAttempt do
+                logTLines [ "You present the topiary paw to the woman."
+                          , ""
+                          , "\"What's this? There's something about it - it feels... right, somehow.\""
+                          , ""
+                          , "She places it on her bloody stump."
+                          , "It takes root; wooden tendrils snake down her arm, fusing the paw to her wrist."
+                          , "She opens and closes it a couple of times experimentally."
+                          , ""
+                          , "\"Ha! I think that's it! So, so meaningless...\""
+                          , ""
+                          , "A marker pen appears in her wooden paw."
+                          , ""
+                          , "\"Thank you - really. I've been waiting for so long. I suppose you'll need this - it would be so cruel if you didn't...\""
+                          , ""
+                          , "She hands you the pen, completing her loop. She instantly ceases to exist."
+                          ]
+                removeEntity paw
+                removeEntity suicidalWoman
+                pen <- mkSimpleObj "marker pen" ["pen", "marker", "marker pen"] (Nothing :: Maybe Entity)
+                describeC pen "An ordinary marker pen. You have memories of defacing newspapers with it as a child. Don't you?"
+                addToInventory pen)
+
             return $ Just "You notice that one of the bonobo's paws has splintered, and could easily be broken away from its tree.")
     return
       $ T.intercalate "\n"
@@ -358,6 +389,26 @@ buildFourthGame = do
          modifyEntity (set droppable Droppable) cleaver
          modifyEntity (set usable Usable) cleaver
          addUseHandler cleaver (const $ logT "Woah - be careful with that thing. It could have somebody's arm off.")
+         suicidalWoman <- getOneEntityByName SimpleObj "suicidal woman"
+         addGiveHandler cleaver suicidalWoman (\cleaver suicidalWoman -> do
+           setCondition "ThirdAttempt"
+           removeEntity cleaver
+           dressingRoom <- getLocationByName "dressing room"
+           logTLines [ "You show the cleaver to the woman, and she lights up."
+                     , ""
+                     , "\"Ha, no way! That could work... give it here!\""
+                     , ""
+                     , "She takes the cleaver from your hand."
+                     , ""
+                     , "\"Now was it across the road, or down the tracks? I can never remember...\""
+                     , ""
+                     , "She takes the cleaver in her left hand and slices at her right wrist."
+                     , "In her haste, she cuts clean through bone and cartilage, severing the hand cleanly off."
+                     ]
+           hand <- getOneEntityByName SimpleObj "human hand"
+           modifyEntity (set locationID (Just $ dressingRoom^.?entityID)) hand
+           modifyEntity (set storable Storable) hand
+           describeC hand "The still-warm hand of the woman, severed at the wrist and bleeding.")
          terrifiedMan <- getOneEntityByName SimpleObj "terrified man"
          removeEntity terrifiedMan
 
@@ -378,6 +429,8 @@ buildFourthGame = do
       , Just "An elaborate pine cupboard stands with one door open - its insides seem impossibly spacious."
       , cT (isWomanHere && not firstAttempt) "A sad and sallow-faced woman meets your gaze as you enter.\nShe stands on a stubby footstool with a noose of rope around her neck.\nShe greets you with \"Hello\" before kicking the stool out from underneath herself.\n\nShe struggles for a couple of minutes, ceases to move, and then disappears, only to reappear alive in the centre of the room."
       , cT (isWomanHere && firstAttempt && not secondAttempt) "The woman paces idly, plotting her own demise, paying you little attention."
+      , cT (isWomanHere && firstAttempt && secondAttempt && not thirdAttempt) "The woman paces idly, plotting her own demise, paying you little attention."
+      , cT (isWomanHere && firstAttempt && secondAttempt && thirdAttempt) "The woman sits now, staring longingly at the stump of her arm."
       ])
 
   suicidalWoman <- mkSimpleObj "suicidal woman" ["woman", "suicidal woman"] (Just dressingRoom)
@@ -391,6 +444,7 @@ buildFourthGame = do
       [ Just "Her skin looks lightly jaundiced, and her arms are marked from past attempts on her life."
       , cT firstAttempt "More than one blue bruised loop snakes around her neck - that clearly wasn't her first hanging."
       , cT secondAttempt "Though newly alive, her head sits at an impossible angle atop her neck."
+      , cT thirdAttempt "Her right arm finishes at the wrist, giving way to a cleanly severed stump."
       ])
 
   modifyEntity (set talkable Talkable) suicidalWoman
@@ -439,8 +493,6 @@ buildFourthGame = do
       ])
     
   -- TODO:
-  -- location east of lib
-  -- suicide guy is there
   -- give cleaver for wrists
   -- takes off hand
   -- give paw

@@ -58,6 +58,7 @@ data GameState =
     , _turnOnHandlers :: Map EntityID (Entity -> Stack GameState ())
     , _turnOffHandlers :: Map EntityID (Entity -> Stack GameState ())
     , _combinationHandlers :: Map (EntityID, EntityID) (Entity -> Entity -> Stack GameState ())
+    , _giveHandlers :: Map (EntityID, EntityID) (Entity -> Entity -> Stack GameState ())
     , _eatHandlers :: Map EntityID (Entity -> Stack GameState ())
     , _drinkHandlers :: Map EntityID (Entity -> Stack GameState ())
     , _openHandlers :: Map EntityID (Entity -> Stack GameState ())
@@ -84,6 +85,7 @@ mkGameState = GameState { _entities=M.empty
                         , _turnOnHandlers=M.empty
                         , _turnOffHandlers=M.empty
                         , _combinationHandlers=M.empty
+                        , _giveHandlers=M.empty
                         , _eatHandlers=M.empty
                         , _drinkHandlers=M.empty
                         , _openHandlers=M.empty
@@ -105,6 +107,7 @@ type UseHandler = Entity -> App ()
 type TurnOnHandler = Entity -> App ()
 type TurnOffHandler = Entity -> App ()
 type CombinationHandler = Entity -> Entity -> App ()
+type GiveHandler = Entity -> Entity -> App ()
 type EatHandler = Entity -> App ()
 type DrinkHandler = Entity -> App ()
 type OpenHandler = Entity -> App ()
