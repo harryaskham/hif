@@ -345,15 +345,74 @@ buildFourthGame = do
                    , ""
                    , "He pulls a mean looking meat cleaver from his trouser leg and hands it to you."
                    , ""
-                   , "As you take it from his hand, the man blinks out of existence."
+                   , "As you read this message, the code representing the man is deleted from memory."
+                   , "As you take the cleaver from his hand, the man blinks out of existence, leaving empty space."
                    ]
          cleaver <- mkSimpleObj "cleaver" ["cleaver", "meat cleaver", "knife"] (Nothing :: Maybe Entity)
+         describeC cleaver "A meat cleaver with blade sharpened to atomic width. You'll want to handle it very carefully."
+         addToInventory cleaver
          modifyEntity (set storable Storable) cleaver
          modifyEntity (set droppable Droppable) cleaver
-         addToInventory cleaver
+         modifyEntity (set usable Usable) cleaver
+         addUseHandler cleaver (const $ logT "Woah - be careful with that thing. It could have somebody's arm off.")
          terrifiedMan <- getOneEntityByName SimpleObj "terrified man"
          removeEntity terrifiedMan
 
+  dressingRoom <- mkLocation "dressing room"
+  dressingRoom `isEastOf` library
+  library `isWestOf` dressingRoom
+  describe dressingRoom (\e -> do
+    isWomanHere <- "suicidal woman" `isANamedObjectAt` e
+    firstAttempt <- conditionMet "FirstAttempt"
+    secondAttempt <- conditionMet "SecondAttempt"
+    thirdAttempt <- conditionMet "ThirdAttempt"
+    when (not firstAttempt) do
+      setCondition "FirstAttempt"
+    return
+      $ T.intercalate "\n"
+      $ catMaybes
+      [ Just "A single wooden rafter crosses the otherwise immaculately white room."
+      , Just "An elaborate pine dresser stands with one door open - its insides seem impossibly spacious."
+      , cT (isWomanHere && not firstAttempt) "A sad and sallow-faced woman meets your gaze as you enter.\nShe stands on a stubby footstool with a noose of rope around her neck.\nShe greets you with \"Hello\" before kicking the stool out from underneath herself.\n\nShe struggles for a couple of minutes, ceases to move, and then disappears, only to reappear alive in the centre of the room."
+      , cT (isWomanHere && firstAttempt && not secondAttempt) "The woman paces idly, plotting her own demise, paying you little attention."
+      ])
+
+  suicidalWoman <- mkSimpleObj "suicidal woman" ["woman", "suicidal woman"] (Just dressingRoom)
+  describe suicidalWoman (\e -> do
+    firstAttempt <- conditionMet "FirstAttempt"
+    secondAttempt <- conditionMet "SecondAttempt"
+    thirdAttempt <- conditionMet "ThirdAttempt"
+    return
+      $ T.intercalate "\n"
+      $ catMaybes
+      [ Just "Her skin looks lightly jaundiced, and her arms are marked from past attempts on her life."
+      , cT firstAttempt "More than one blue bruised loop snakes around her neck - that clearly wasn't her first hanging."
+      , cT secondAttempt "Though newly alive, her head sits at an impossible angle atop her neck."
+      ])
+
+  modifyEntity (set talkable Talkable) suicidalWoman
+  addTalkToHandler suicidalWoman do
+    firstAttempt <- conditionMet "FirstAttempt"
+    secondAttempt <- conditionMet "SecondAttempt"
+    thirdAttempt <- conditionMet "ThirdAttempt"
+    if firstAttempt && not secondAttempt
+       then do
+         setCondition "SecondAttempt"
+         logTLines [ "Stunned, you approach the newly reanimated woman, offering help. She speaks:"
+                   , ""
+                   , "\"Worth a shot.\""
+                   , ""
+                   , "and, noticing your arrival:"
+                   , ""
+                   ,"\"Do you know how many times that is now? Say... watch this.\""
+                   , ""
+                   , "Before you can intervene, she jumps back up on the stool, outstretches her arms and leaps backward in a flawless swan dive."
+                   , "She comes down vertically on her head, and her neck disappears into her torso with a sick crackle."
+                   , ""
+                   , "Once again, she reappears alive in the centre of the room"
+                   ]
+       else logT "You try to speak, but she looks you over and dismisses you as no help at all."
+    
   -- TODO:
   -- location east of lib
   -- suicide guy is there
@@ -362,6 +421,8 @@ buildFourthGame = do
   -- give paw
   -- replaces it
   -- add watcher for return to the monk
+  -- mirror desc
+  -- clothes so very unlike yours
 
   registerAchievement "Smartarse"
   registerAchievement "Pottymouth"
