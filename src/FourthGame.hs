@@ -19,12 +19,11 @@ import Data.Text (Text)
 import qualified Data.Map.Strict as M
 import Control.Lens
 import Control.Monad
+import Control.Monad.Extra
 import Data.Maybe
 
 {-
    TODO:
-   - Wearing whatever you're wearing right now
-   - Meditating NPC storyline
    - Ability to inspect the code of individuals, quine-style
    - 'Who am I'
    - 'Who is X'
@@ -36,7 +35,9 @@ import Data.Maybe
    - Increase seperation; become less like yourself. Desynchronise the player and the avatar
    - The monk wants to feel the passage of time again - wait for him
    - Monk reveals fate - release the 3 souls trapped here and you too can face oblivion
+   - The monk has meditated the forest into existence - to prove it he wills it away and the code really does change
    - He knows because he has seen the code
+   - conditions and condition-mets; set flags as you progress throuhg the game. one for waiting
    
    - Web frontend
    - Save/Load
@@ -52,10 +53,10 @@ buildFourthGame = do
   mainMenu <- mkLocation "Main Menu"
   describeC mainMenu
     $ T.intercalate "\n"
-    [ "You find yourself at the title screen of the game you have chosen to play."
-    , "Typing 'help' will let you know how to continue from here."
-    , "As you acclimatise, the dim matte white of the walls around you becomes clearer."
-    , "Somehow, you are also standing in a small, empty chamber with a single, simple opening."
+    [ "You find yourself reading the title screen of this game."
+    , "Typing 'help' will tell you how to continue from here."
+    , "As you acclimatise, the dim white of the walls around you becomes clearer."
+    , "Somehow, you are also standing in an otherwise empty chamber with a single, simple opening."
     ]
 
   p <- mkPlayer "yourself" mainMenu
@@ -92,7 +93,9 @@ buildFourthGame = do
       $ catMaybes
       [ Just "This is a chamber much like the last. Smooth platonic surfaces meet to form the interior of a cube."
       , Just "A plain staircase leads up through a hole in the ceiling."
-      , cT itemHere "A game item is propped up against the side of the stairs."
+      , cT itemHere "You notice an item - a small piece of logic - propped up against the side of the stairs."
+      -- TODO: Remove forestry when monk disappears
+      , Just "Through the western archway, the scent of forestry."
       ])
   firstLocation `isNorthOf` mainMenu
 
@@ -112,10 +115,50 @@ buildFourthGame = do
   modifyEntity (set usable Usable) item
   modifyEntity (set onOff $ Just Off) item
   addTalkToHandler item $ logT "You recount a short anecdote to the item. It does not respond."
-  addTurnOnHandler item (const $ logT "You prod at the item until you are satisfied that you have activated it in some way, although no chance in its appearance has occurred.")
+  addTurnOnHandler item (const $ logT "You prod at the item until you are satisfied that you have activated it in some way, although no change in its appearance has occurred.")
   addTurnOffHandler item (const $ logT "You will the item to still itself. It remains dormant.")
   addUseHandler item (const $ logT "You make use of the item in the usual way. It appears that nothing is programmed to happen.")
   addEatHandler item (const $ logT "You bite off a chunk of the item and swallow. No matter how much you consume, it gets no smaller and your hunger is no further sated.")
   addDrinkHandler item (const $ logT "You place the item to your lips and attempt to take a swig. As you imagine flavourless liquid pouring forth from the item, so can you feel the sensation of your thirst being slaked.")
 
+  garden <- mkLocation "topiary garden"
+  describe garden (\e -> do
+    isMonkHere <- "monk" `isANamedObjectAt` e
+    isTopiaryHere <- "topiaries" `isANamedObjectAt` e
+    return
+      $ T.intercalate "\n"
+      $ catMaybes
+      [ Just "You enter another cubic volume of space. The walls possess texture and feel microscopically uneven to the touch."
+      , if isTopiaryHere
+           then Just "Around the perimeter stand trees of various species and dimension, each clipped in the image of a different animal."
+           else Nothing
+      , if isMonkHere
+           then Just "On a raised platform by the laurel trunk of an elephant sits a shaven figure, cross-legged and deep in meditation, breathing a continuous and unbroken mantra."
+           else Just "In the centre, the cubic platform has unfurled into an infinitesimally thin net of six squares."
+      ])
+  garden `isWestOf` firstLocation
+  firstLocation `isEastOf` garden
+
+  topiaries <- mkSimpleObj "topiaries" ["tree", "trees", "topiary", "topiaries"] (Just garden)
+  describe topiaries (\e -> do
+    pawLine <-
+      ifM (conditionMet "LookedAtTopiaries")
+          (return Nothing)
+          (do
+            setCondition "LookedAtTopiaries"
+            garden <- getLocationByName "topiary garden"
+            paw <- mkSimpleObj "paw" ["paw"] (Just garden)
+            describeC paw "The clenched fist of a bonobo monkey, sculpted from the finer branches of a bay laurel."
+            modifyEntity (set storable Storable) paw
+            return $ Just "You notice that one of the bonobo's paws has splintered, and could easily be broken away from its tree.")
+    return
+      $ T.intercalate "\n"
+      $ catMaybes
+      [ Just "Immaculately clipped trees of laurel and myrtle frame the room."
+      , Just "A rearing giraffe stands beside a shrub depicting the gaping mouth of a yawning hippopotamus."
+      , pawLine
+      ])
+        
+
+  monk <- mkSimpleObj "monk" ["monk", "figure", "man", "woman", "person"] (Just garden)
   return ()

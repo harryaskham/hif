@@ -52,6 +52,14 @@ hasAchievement aID = do
   as <- gets (view achievements)
   return $ M.member aID as
 
+setCondition :: Condition -> App ()
+setCondition c = modify $ over conditions (S.insert c)
+
+conditionMet :: Condition -> App Bool
+conditionMet c = do
+  cs <- gets (view conditions)
+  return $ c `S.member` cs
+
 setGameOver :: App ()
 setGameOver = modify $ set gameOver True
 
