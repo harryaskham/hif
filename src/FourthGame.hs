@@ -63,7 +63,8 @@ buildFourthGame = do
   describeC mainMenu
     $ T.intercalate "\n"
     [ "You find yourself reading the title screen of this game."
-    , "Typing 'help' will tell you how to continue from here. Typing 'save' will let you save your progress.'"
+    , "Typing 'help' will tell you how to continue from here."
+    , "Typing 'save' will let you save your progress."
     , "As you acclimatise, the dim white of the walls around you becomes clearer."
     , "Somehow, you are also standing in an otherwise empty chamber with a single, simple opening."
     ]
