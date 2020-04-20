@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: baadc5f31d430e58557030563dd1033d9d47a1e793e0562b4de0c298d228dcce
+-- hash: 42b4d12fd2a3807366a0a9e534460ad5b25c09878e4299cb655c898d3241e072
 
 name:           hif
 version:        0.1.0.0
@@ -37,7 +37,6 @@ library
       Instruction
       InstructionType
       Tools
-      Watcher
   other-modules:
       Paths_hif
   hs-source-dirs:
