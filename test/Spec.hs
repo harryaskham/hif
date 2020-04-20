@@ -400,7 +400,9 @@ main = hspec do
         , "wear outfit"
         , "use pen on book"
         , "talk to monk"
+        , "wait"
         , "d"
-        , "i"
         ]
-        [ null <$> gets (view remainingAchievements) ]
+        [ flushLog >> gets (view gameOver)
+        , null <$> gets (view remainingAchievements)
+        ]
