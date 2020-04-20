@@ -37,7 +37,7 @@ data Direction = DirNorth
                | DirWest
                | DirUp
                | DirDown
-               deriving (Eq)
+               deriving (Eq, Show)
 
 instance TextShow Direction where
   showb DirNorth = "North"
@@ -69,6 +69,14 @@ data Instruction = Go Direction
                  | OpenI Target
                  | Break Target
                  | Say Text
-                 deriving (Eq)
+                 | Save
+                 | Load Text
+                 deriving (Eq, Show)
+
+instance TextShow Instruction where
+  showb = showb
 
 data InstructionError = InstructionError deriving (Eq, Show)
+
+instance TextShow InstructionError where
+  showb = showb

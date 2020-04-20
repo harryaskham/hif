@@ -65,7 +65,9 @@ data GameState =
     , _breakHandlers :: Map EntityID (Entity -> Stack GameState ())
     , _outLines :: [Text]
     , _lastInstructionState :: Either InstructionError Instruction
+    , _lastCommand :: Maybe Text
     , _conditions :: Set Condition
+    , _gameBuilder :: Maybe (Stack GameState ())
     }
 makeLenses ''GameState
 
@@ -91,8 +93,10 @@ mkGameState = GameState { _entities=M.empty
                         , _openHandlers=M.empty
                         , _breakHandlers=M.empty
                         , _outLines=[]
+                        , _lastCommand=Nothing
                         , _lastInstructionState=Left InstructionError  -- TODO: woops
                         , _conditions=S.empty
+                        , _gameBuilder=Nothing
                         }
 
 -- Instantiate MTL stack for game

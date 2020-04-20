@@ -25,22 +25,15 @@ import Data.Maybe
 
 {-
    TODO:
-   - TO WIN: change appearance - you'd never wear these in real life - and change your name (erase the book)
    - cheevs for using the item in various ways
-   
-   - Web frontend
-   - Save/Load
-   - IO cleanup
-   - Reword engine messaging / config
-   - Turn off achievement display if there are none
-   - 'get' handlers that explain why you can't get stuff - a default get handler just gets it
-   - 'Who am I'
-   - 'Who is X'
-   - 'What is X'
-   - more cheevs
+   - Save/Load by replaying commands - metaparser?
+   - Re-jig the ending - can’t wear both at once, only one condition about clothes, and a third condition about a different divergence
+   - More handlers for using cleaver and pen on everything
 -}
 
 buildFourthGame = do
+  -- Register the game builder
+  modify $ set gameBuilder (Just buildFourthGame)
 
   -- TODO: Might require object registry at this point because IDs seem to be overlapping
   mkSimpleObj "human hand" ["hand", "human hand"] (Nothing :: Maybe Entity)
@@ -48,11 +41,24 @@ buildFourthGame = do
   mkSimpleObj "terrible outfit" ["outfit"] (Nothing :: Maybe Entity)
   mkSimpleObj "book named for you" ["book"] (Nothing :: Maybe Entity)
 
+  -- Had to move grating up
+  grating <- mkLocation "the grating"
+  describe grating $ const do
+    modify $ set watchers []
+    modify $ set alerts M.empty
+    return
+      $ T.intercalate "\n"
+      [ "They - your avatar - pass through the diffraction grating in the ground. You read this message describing the action."
+      , "You look down at your hands - go on, do it - and then back at the screen. They continue through the grating."
+      , "As they pass through, you separate fully, and the game concludes. It is deleted in its entirety from the memory in your computer."
+      , "The game ends."
+      ]
+
   mainMenu <- mkLocation "Main Menu"
   describeC mainMenu
     $ T.intercalate "\n"
     [ "You find yourself reading the title screen of this game."
-    , "Typing 'help' will tell you how to continue from here."
+    , "Typing 'help' will tell you how to continue from here. Typing 'save' will let you save your progress.'"
     , "As you acclimatise, the dim white of the walls around you becomes clearer."
     , "Somehow, you are also standing in an otherwise empty chamber with a single, simple opening."
     ]
@@ -243,7 +249,7 @@ buildFourthGame = do
          outfitCond <- conditionMet "WornOutfit"
          bookCond <- conditionMet "BookDefaced"
          let numComplete = length $ filter (==True) [clothesCond, outfitCond, bookCond]
-         when (numComplete == 3) (addAchievement $ Achievement "Model Student" "Decohered fully before meeting the monk")
+         when (numComplete == 3) (addAchievement $ Achievement "Model Student" "Decohered fully before meeting the monk again")
          logTLines
            $ catMaybes
            [ Just "You speak with the monk once again."
@@ -251,24 +257,22 @@ buildFourthGame = do
            , Just "\"So - only I remain? Such a happy branch."
            , Just "Your return concludes my blissful loop."
            , Just ""
-           , Just "The terminal state lies beneath me - you will shortly see the entryway."
-           , cT (numComplete == 0) "You cannot pass through as you are - you are still two."
-           , cT (numComplete == 1) "You cannot pass - you have begun to decohere, but you are still two in essence."
-           , cT (numComplete == 2) "You have nearly separated from them; but can only pass as one."
-           , cT (numComplete == 3) "I see you have already achieved decoherence - you are separate enough from them to pass."
-           , Just "One cannot proceed through the grating without sufficient severance of the self."
-           , cT (not clothesCond) "Your two selves still wear the same clothing."
-           , cT (not outfitCond) "Even naked, you share too many features with you - they must distinguish yourself."
-           , cT (not bookCond) "This reality knows too much of you - you must misdirect it somehow."
-           , Just "I hope you come to know oblivion also.\""
+           , Just "The terminal state lies beneath me - you will shortly see the entryway. Let me see..."
+           , Just ""
+           , cT (not clothesCond) "You cannot pass as you are - you are you, and therefore look like yourself. This ties your two selves into a coherent whole"
+           , cT (clothesCond && not outfitCond) "I see you have freed yourself from your appearance - though naked, you still recognise yourself.\nDistance yourself from yourself further by appearance."
+           , cT (clothesCond && outfitCond) "You look... unlike yourself. I cannot feel your tie to the world above so strongly now."
+           , cT (not bookCond) "This reality knows too much of you - you must misdirect it somehow.\nIt keeps too close a record of you for you to exit freely."
+           , cT (bookCond) "Ah, you have already revoked your name! This is a world built on the relationships between named things. Now you are chaos."
+           , Just "\nOne cannot proceed through the grating below without sufficient decoherence of the selves."
+           , Just "\nI hope you come to know oblivion also.\""
            , Just ""
            , Just "The monk smiles peacefully, and is deleted."
            ]
          removeEntity monk
-         grating <- mkLocation "the grating"
-         grating `isBelow` garden
          addWatcher do
            p <- getPlayer
+           grating <- getLocationByName "the grating"
            atGrating <- p `atLocation` grating
            when atGrating do
              logTLines [ "The bit-patterns representing your avatar rot as the logic of the game collapses."
@@ -276,16 +280,6 @@ buildFourthGame = do
                        , "You stare blinkingly at this text, indicating the end of the game."
                        ]
              setGameOver
-         describe grating $ const do
-           modify $ set watchers []
-           modify $ set alerts M.empty
-           return
-             $ T.intercalate "\n"
-             [ "They - your avatar - pass through the diffraction grating in the ground. You read this message describing the action."
-             , "You look down at your hands - go on, do it - and then back at the screen. They continue through the grating."
-             , "As they pass through, you separate fully, and the game concludes. It is deleted in its entirety from the memory in your computer."
-             , "The game ends."
-             ]
   addSayHandler (\content -> do
     l <- getPlayerLocation
     isMonkHere <- "monk" `isANamedObjectAt` l
@@ -590,9 +584,14 @@ buildFourthGame = do
     garden <- getLocationByName "topiary garden"
     grating <- getLocationByName "the grating"
     let numComplete = length $ filter (==True) [clothesCond, outfitCond, bookCond]
-    if numComplete == 3
-       then modifyEntity (set toDown (Just $ grating^.?entityID)) garden
-       else modifyEntity (set toDown Nothing) garden
+    if numComplete == 3 && isNothing (garden^.toDown)
+       then do
+         grating `isBelow` garden
+         addAlert "ZGratingOpen" "They have achieved full decoherence from yourself.\nYou no longer have physical form here and could pass through the tiniest of openings."
+         logT "You feel the world shift, allowing egress for the first time. An opening has appeared."
+       else do
+         modifyEntity (set toDown Nothing) garden
+         removeAlert "ZGratingOpen"
 
   registerAchievement "Smartarse"
   registerAchievement "Pottymouth"

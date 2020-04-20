@@ -124,7 +124,10 @@ getEntities = traverse getEntity
 getLocationByName :: Name -> App Entity
 getLocationByName n = do
   es <- getAllEntities Location
-  return $ head [e | e <- es, e^.name == Just n]
+  case [e | e <- es, e^.name == Just n] of
+    [] -> error $ T.unpack $ "No location named " <> n
+    [e] -> return e
+    _ -> error $ T.unpack $ "Multiple locations named " <> n
 
 getEntityByName :: EntityType -> Name -> App (Maybe Entity)
 getEntityByName et n = do

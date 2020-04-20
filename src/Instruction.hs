@@ -43,6 +43,7 @@ runInstruction instructionText = do
       -- Run the instruction and store its outcome
       instructionState <- enactInstruction i
       modify $ set lastInstructionState instructionState
+      modify $ set lastCommand (Just instructionText)
       -- End of turn stuff
       runWatchers
       unless isOver $ logT =<< describeCurrentTurn
@@ -105,6 +106,20 @@ parseUndo = do
   string "undo"
   eof
   return Undo
+
+parseSave :: Parser Instruction
+parseSave = do
+  string "save"
+  eof
+  return Save
+
+parseLoad :: Parser Instruction
+parseLoad = do
+  string "load"
+  spaces
+  target <- many1 anyChar
+  eof
+  return $ Load (T.pack target)
 
 parseGet :: Parser Instruction
 parseGet = do
@@ -276,6 +291,8 @@ instructionParser =
   <|> try parseOpen
   <|> try parseBreak
   <|> try parseSay
+  <|> try parseSave
+  <|> try parseLoad
 
 -- Parse out the instruction from the given text string
 parseInstruction :: Text -> Maybe Instruction
@@ -334,6 +351,7 @@ enactInstruction i@Help = do
                 , "'say' something to say it out loud"
                 , "'get thing' and 'drop thing', and 'i' or 'inventory' to see what you've got"
                 , "Did ya fuck something up? 'undo' to go back a step!"
+                , "Type 'save' to get a command that returns you to this spot."
                 ]
   return $ Right i
 
@@ -409,6 +427,7 @@ enactInstruction i@(Break target) = do
           h e
           return $ Right i
 
+-- TODO: Revisit to support multiple items.
 enactInstruction i@(Wear target) = do
   eM <- oneInventoryTargetedEntity target
   case eM of
@@ -417,10 +436,16 @@ enactInstruction i@(Wear target) = do
       return $ Left InstructionError
     Just e -> case e^.wearable of
       Wearable -> do
-        logT $ "You start wearing the " <> (e^.?name)
-        modifyPlayer (over wearing (fmap (S.insert $ e^.?entityID)))
-        removeFromInventory $ e^.?entityID
-        return $ Right i
+        ws <- getPlayerWornEntities
+        case ws of
+          [] -> do
+            logT $ "You start wearing the " <> (e^.?name)
+            modifyPlayer (over wearing (fmap (S.insert $ e^.?entityID)))
+            removeFromInventory $ e^.?entityID
+            return $ Right i
+          (w:_) -> do
+            logT $ "You cannot wear the " <> (e^.?name) <> "; you are already wearing the " <> (w^.?name)
+            return $ Left InstructionError
       Unwearable -> do
         logT $ e^.?name <> " cannot be worn"
         return $ Left InstructionError
@@ -552,6 +577,36 @@ enactInstruction i@Undo = do
       logT "By concentrating really hard, you turn time backwards a tiny amount"
       put h
       return $ Right i
+
+enactInstruction i@Save = do
+  hs <- gets (view history)
+  last <- gets (view lastCommand)
+  let cmds = reverse
+               $ filter ((/="save") . T.toLower)
+               $ catMaybes (last:(view lastCommand <$> hs))
+  logTLines [ "Copy the following and paste later to resume your game:"
+            , "load " <>T.intercalate ";" cmds
+            ]
+  return $ Right i
+
+enactInstruction i@(Load cmdStr) = do
+  -- Rebuild game from scratch
+  builder <- gets (view gameBuilder)
+  let (Just b) = builder
+  put mkGameState
+  _ <- b
+
+  -- Run all commands
+  let cmds = T.splitOn ";" cmdStr
+  let go [] = return ()
+      go (c:cs) = do
+        runInstruction c
+        go cs
+  go cmds
+  
+  -- Kill output
+  modify $ set outLines []
+  return $ Right i
 
 enactInstruction i@(Eat target) = do
   eM <- oneValidTargetedEntity target
