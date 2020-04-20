@@ -25,15 +25,22 @@ import Data.Maybe
 
 {-
    TODO:
-   - cheevs for using the item in various ways
-   - Save/Load by replaying commands - metaparser?
-   - Re-jig the ending - can’t wear both at once, only one condition about clothes, and a third condition about a different divergence
    - More handlers for using cleaver and pen on everything
 -}
 
 buildFourthGame = do
   -- Register the game builder
   modify $ set gameBuilder (Just buildFourthGame)
+
+  registerAchievement "Smartarse"
+  registerAchievement "Pottymouth"
+  registerAchievement "Model Student"
+  registerAchievement "Spin Me a Yarn"
+  registerAchievement "Enabler"
+  registerAchievement "Repulsive"
+  registerAchievement "Hungry Boi"
+  registerAchievement "Thirsty Boi"
+  registerAchievement "Suicidal Tendencies"
 
   -- TODO: Might require object registry at this point because IDs seem to be overlapping
   mkSimpleObj "human hand" ["hand", "human hand"] (Nothing :: Maybe Entity)
@@ -118,14 +125,22 @@ buildFourthGame = do
   modifyEntity (set edible Edible) item
   modifyEntity (set potable Potable) item
   modifyEntity (set talkable Talkable) item
-  modifyEntity (set usable Usable) item
   modifyEntity (set onOff $ Just Off) item
-  addTalkToHandler item $ logT "You recount a short anecdote to the item. It does not respond."
-  addTurnOnHandler item (const $ logT "You prod at the item until you are satisfied that you have activated it in some way, although no change in its appearance has occurred.")
-  addTurnOffHandler item (const $ logT "You will the item to still itself. It remains dormant.")
-  addUseHandler item (const $ logT "You make use of the item in the usual way. It appears that nothing is programmed to happen.")
-  addEatHandler item (const $ logT "You bite off a chunk of the item and swallow. No matter how much you consume, it gets no smaller and your hunger is no further sated.")
-  addDrinkHandler item (const $ logT "You place the item to your lips and attempt to take a swig. As you imagine flavourless liquid pouring forth from the item, so can you feel the sensation of your thirst being slaked.")
+  addTalkToHandler item do
+    addAchievement $ Achievement "Spin Me a Yarn" "Tell a tall tale to the item."
+    logT "You recount a short anecdote to the item. It does not respond."
+  addTurnOnHandler item $ const do
+    addAchievement $ Achievement "Enabler" "Turn on the item"
+    logT "You prod at the item until you are satisfied that you have activated it in some way, although no change in its appearance has occurred."
+  addTurnOffHandler item $ const do
+    addAchievement $ Achievement "Repulsive" "Such a fucking turn-off"
+    logT "You will the item to still itself. It remains dormant."
+  addEatHandler item $ const do
+    addAchievement $ Achievement "Hungry Boi" "What if you'd needed that later???"
+    logT "You bite off a chunk of the item and swallow. No matter how much you consume, it gets no smaller and your hunger is no further sated."
+  addDrinkHandler item $ const do
+    addAchievement $ Achievement "Thirsty Boi" "Drink eight glasses of real water every day"
+    logT "You place the item to your lips and attempt to take a swig. As you imagine flavourless liquid pouring forth from the item, so can you feel the sensation of your thirst being slaked."
 
   garden <- mkLocation "topiary garden"
   describe garden (\e -> do
@@ -447,6 +462,10 @@ buildFourthGame = do
          modifyEntity (set droppable Droppable) cleaver
          modifyEntity (set usable Usable) cleaver
          addUseHandler cleaver (const $ logT "Woah - be careful with that thing. It could have somebody's arm off.")
+         p <- getPlayer
+         addCombinationHandler cleaver p (\cleaver p -> do
+           addAchievement $ Achievement "Suicidal Tendencies" "Get some help, please"
+           logT "You point the cleaver's end at the centre of your chest, but can't bring yourself to pull it towards you.")
          suicidalWoman <- getOneEntityByName SimpleObj "suicidal woman"
          addGiveHandler cleaver suicidalWoman (\cleaver suicidalWoman -> do
            setCondition "ThirdAttempt"
@@ -592,7 +611,3 @@ buildFourthGame = do
        else do
          modifyEntity (set toDown Nothing) garden
          removeAlert "ZGratingOpen"
-
-  registerAchievement "Smartarse"
-  registerAchievement "Pottymouth"
-  registerAchievement "Model Student"

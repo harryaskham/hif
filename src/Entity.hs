@@ -193,7 +193,7 @@ allValidTargetedEntities t = do
   es1 <- getTargetedEntitiesNearPlayer t
   es2 <- filterInventoryByTarget t
   es3 <- filterWearingByTarget t
-  return $ es1 ++ es2
+  return $ es1 ++ es2 ++ es3
 
 -- Gets a single arbitrary match to the given target.
 -- Nothing if it doesn't match or can't be found.

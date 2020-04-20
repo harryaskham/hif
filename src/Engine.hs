@@ -4,6 +4,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE BlockArguments #-}
 
 module Engine where
 
@@ -43,9 +44,11 @@ registerAchievement aID = modify $ over remainingAchievements (S.insert aID)
 
 addAchievement :: Achievement -> App ()
 addAchievement a@(Achievement aID aContent) = do
-  logT $ "\n***ACHIEVEMENT UNLOCKED***\n" <> aID <> "\n" <> aContent
-  modify (\s -> s & achievements %~ M.insert aID a)
-  modify (\s -> s & remainingAchievements %~ S.delete aID)
+  hasIt <- hasAchievement aID
+  when (not hasIt) do
+    logT $ "***ACHIEVEMENT UNLOCKED***\n" <> aID <> "\n" <> aContent <> "\n"
+    modify (\s -> s & achievements %~ M.insert aID a)
+    modify (\s -> s & remainingAchievements %~ S.delete aID)
 
 hasAchievement :: AchievementID -> App Bool
 hasAchievement aID = do

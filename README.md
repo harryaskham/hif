@@ -4,7 +4,6 @@ Interactive Fiction engine in Haskell and some games using it.
   
 ## TODO
 - Reenable single use
-- Loading only works for Fourth
 - Web frontend
 - IO cleanup
 - Reword engine messaging / config
