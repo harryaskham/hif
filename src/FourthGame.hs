@@ -23,11 +23,6 @@ import Control.Monad
 import Control.Monad.Extra
 import Data.Maybe
 
-{-
-   TODO:
-   - More handlers for using cleaver and pen on everything
--}
-
 buildFourthGame = do
   -- Register the game builder
   modify $ set gameBuilder (Just buildFourthGame)
@@ -41,6 +36,9 @@ buildFourthGame = do
   registerAchievement "Hungry Boi"
   registerAchievement "Thirsty Boi"
   registerAchievement "Suicidal Tendencies"
+  registerAchievement "Homicidal Tendencies"
+  registerAchievement "Zen Mastery"
+  registerAchievement "Landscaper"
 
   -- TODO: Might require object registry at this point because IDs seem to be overlapping
   mkSimpleObj "human hand" ["hand", "human hand"] (Nothing :: Maybe Entity)
@@ -302,7 +300,7 @@ buildFourthGame = do
     saidToMonk <- conditionMet "SaidToMonk"
     when (isMonkHere && greetedMonk && not saidToMonk) do
       setCondition "SaidToMonk"
-      when (T.toLower content == "whatever is on your mind") do
+      when (T.isInfixOf "whatever is on your mind" $ T.toLower content) do
         addAchievement $ Achievement "Smartarse" "Couldn't help yourself, could you"
       when (any (==True) $ T.isInfixOf <$> ["fuck", "cunt", "shit"] <*> [T.toLower content]) do
         addAchievement $ Achievement "Pottymouth" "> get soap\n> put soap in mouth"
@@ -467,6 +465,17 @@ buildFourthGame = do
            addAchievement $ Achievement "Suicidal Tendencies" "Get some help, please"
            logT "You point the cleaver's end at the centre of your chest, but can't bring yourself to pull it towards you.")
          suicidalWoman <- getOneEntityByName SimpleObj "suicidal woman"
+         monk <- getOneEntityByName SimpleObj "monk"
+         addCombinationHandler cleaver suicidalWoman (\cleaver suicidalWoman -> do
+           addAchievement $ Achievement "Homicidal Tendencies" "Twenty-five to life."
+           logT "You are met with no resistance as you slash at the woman's throat.\nAs ever, she reappers nonchalantly in the room's centre.")
+         addCombinationHandler cleaver monk (\cleaver monk -> do
+           addAchievement $ Achievement "Zen Mastery" "There is no blade..."
+           logT "You slash the cleaver across the monk's still neck. The blade disappears where it makes contact with flesh, reappearing as you withdraw it. The monk chuckles softly.")
+         topiaries <- getOneEntityByName SimpleObj "topiaries"
+         addCombinationHandler cleaver topiaries (\cleaver topiaries -> do
+           addAchievement $ Achievement "Landscaper" "Such green fingers"
+           logT "You hack at a topiary, severing a rhino's horn. It falls to the ground, but disappears before it hits, reappearing swiftly on the tree.")
          addGiveHandler cleaver suicidalWoman (\cleaver suicidalWoman -> do
            setCondition "ThirdAttempt"
            removeEntity cleaver
