@@ -176,8 +176,8 @@ buildFourthGame = do
             modifyEntity (set storable Storable) paw
             suicidalWoman <- getOneEntityByName SimpleObj "suicidal woman"
             addGiveHandler paw suicidalWoman (\paw suicidalWoman -> do
-              secondAttempt <- conditionMet "SecondAttempt"
-              if not secondAttempt
+              thirdAttempt <- conditionMet "ThirdAttempt"
+              if not thirdAttempt
                  then logT "She might like this - but she's distracted right now."
                  else do
                    logTLines [ "You present the topiary paw to the woman."

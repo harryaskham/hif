@@ -406,3 +406,5 @@ main = hspec do
         [ flushLog >> gets (view gameOver)
         , null <$> gets (view remainingAchievements)
         ]
+
+--load n;get item;talk to item;drink item;eat item;turn on item;turn off item;w;look at trees;get paw;talk to monk;say fuck whatever is on your mind;wait;e;u;look at shelves;get book;s;break loop;talk to man;n;e;talk to woman;use cleaver on woman;use cleaver on self;w;d;w;use cleaver on trees;use cleaver on monk;e;u;e;give cleaver to woman;give paw to woman;look at cupboard;get outfit;w;d;w;remove clothes;wear outfit;use pen on book;talk to monk;wait
