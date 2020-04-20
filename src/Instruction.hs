@@ -392,7 +392,7 @@ enactInstruction i@(Drop target) = do
         logT $ "You drop the " <> target
         return $ Right i
       Undroppable -> do
-        logT $ e^.?name <> " cannot be dropped"
+        logT $ "The " <> e^.?name <> " cannot be dropped"
         return $ Left InstructionError
 
 enactInstruction i@(OpenI target) = do

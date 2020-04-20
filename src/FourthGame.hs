@@ -23,6 +23,10 @@ import Control.Monad
 import Control.Monad.Extra
 import Data.Maybe
 
+-- TODO:
+-- Eat hand
+-- Pen achievements
+
 buildFourthGame = do
   -- Register the game builder
   modify $ set gameBuilder (Just buildFourthGame)
@@ -156,7 +160,7 @@ buildFourthGame = do
       , if isMonkHere
            then Just "On a raised platform by the trunk of a laurel elephant sits a shaven figure, cross-legged and deep in meditation, breathing a continuous and unbroken mantra."
            else if isGratingOpen
-           then Just "In the centre, the cubic platform on which the monk sat has unfurled into an infinitesimally thin net of six squares laid out in a cross.\nThe central square is an infinitesimally fine grating through which you might be able to pass."
+           then Just "In the centre, the cubic platform on which the monk sat has unfurled into an infinitesimally thin net of six squares laid out in a cross.\nThe central square is a fine grating through which you might be able to pass."
            else Just "In the centre, the cubic platform on which the monk sat has unfurled into an infinitesimally thin net of six squares laid out in a cross.\nThe central square is a fine grating impassable by a physical being like you. Only they can pass, and you and they aren't yet separate enough.\n"
       ])
   garden `isWestOf` firstLocation
@@ -601,7 +605,7 @@ buildFourthGame = do
     if wearing && not over
        then do
          setCondition "WornOutfit"
-         addAlert "WorkOutfit" "Now wearing that outfit, they look nothing like you. The dissonance dries your mouth."
+         addAlert "WornOutfit" "Now wearing that outfit, they look nothing like you. The dissonance dries your mouth."
        else do
          removeCondition "WornOutfit"
          removeAlert "WornOutfit"
@@ -613,11 +617,11 @@ buildFourthGame = do
     garden <- getLocationByName "topiary garden"
     grating <- getLocationByName "the grating"
     let numComplete = length $ filter (==True) [clothesCond, outfitCond, bookCond]
-    if numComplete == 3 && isNothing (garden^.toDown)
+    if numComplete == 3
        then do
          grating `isBelow` garden
          addAlert "ZGratingOpen" "They have achieved full decoherence from yourself.\nYou no longer have physical form here and could pass through the tiniest of openings."
-         logT "You feel the world shift, allowing egress for the first time. An opening has appeared."
+         when (isNothing (garden^.toDown)) $ logT "You feel the world shift, allowing egress. An opening has appeared."
        else do
          modifyEntity (set toDown Nothing) garden
          removeAlert "ZGratingOpen"
