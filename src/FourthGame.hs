@@ -26,6 +26,14 @@ import Data.Maybe
 -- TODO:
 -- Eat hand
 -- Pen achievements
+-- get book / pick up book gives hint
+-- break tree / paw
+-- find X
+-- take off clothes
+-- give Y X
+-- allow THE X and capitals
+-- Sit, read, deface, examine verbs
+-- Per-game alias system for commonly written special cases
 
 buildFourthGame = do
   -- Register the game builder
