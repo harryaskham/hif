@@ -23,6 +23,7 @@ import Control.Monad
 import Control.Monad.Extra
 import Data.Maybe
 
+buildGame :: App ()
 buildGame = do
   -- Register the game builder, enabling rebuilding the world from scratch.
   registerGameBuilder buildGame
