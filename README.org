@@ -9,7 +9,7 @@ The following example implements a simple game demonstrating most of the functio
 [[https://asciinema.org/a/337073][https://asciinema.org/a/337073.png]]
 
 #+BEGIN_SRC haskell
-    buildGame = do
+  buildGame = do
     -- Register the game builder, enabling rebuilding the world from scratch.
     registerGameBuilder buildGame
 
