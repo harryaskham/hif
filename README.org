@@ -5,7 +5,7 @@ Interactive Fiction engine in Haskell and some games (~CovidGame.hs~ and ~Fourth
 ** Example Game
 
 The following example implements a simple game demonstrating most of the functionality.
-You can see the below code play out [[https://asciinema.org/a/337073][here]].
+[[https://asciinema.org/a/337073][https://asciinema.org/a/337073.png]]
 
 #+BEGIN_SRC haskell
     buildGame = do
