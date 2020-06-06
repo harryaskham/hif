@@ -38,8 +38,12 @@ buildGame = do
   clearing `isNorthOf` forest
 
   -- Add a simple constant description to the forest and the through-the-portal place.
-  describeC forest "A thick, overgrown forest. Little sunlight penetrates the canopy overhead."
-  describeC unknown "The land beyond the portal is strange beyond description. Say 'end' to conclude the game."
+  describeC
+    forest
+    "A thick, overgrown forest. Little sunlight penetrates the canopy overhead."
+  describeC
+    unknown
+    "The land beyond the portal is strange beyond description. Say 'end' to conclude the game."
  
   -- Create and describe the player.
   player <- mkPlayer "yourself" forest
@@ -59,7 +63,7 @@ buildGame = do
   describe clearing $ const do
     wearingNecklace <- player `isWearing` necklace
     if wearingNecklace
-      then return "A clearing in the forest. The mystical necklace you found has caused a portal to open ahead of you."
+      then return "A clearing in the forest. The necklace you found has caused a portal to open."
       else return "An unremarkable clearing in the otherwise dense forest."
 
   -- Add a watcher that opens and closes the portal based on the status of the necklace.
