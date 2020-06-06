@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 42b4d12fd2a3807366a0a9e534460ad5b25c09878e4299cb655c898d3241e072
+-- hash: 161d19dfda66b7c76207b950f9d1e021d0ec9519a4f5651c7fa0660ca0ef47aa
 
 name:           hif
 version:        0.1.0.0
@@ -31,6 +31,7 @@ library
       Engine
       Entity
       EntityType
+      ExampleGame
       FourthGame
       GameState
       Handler

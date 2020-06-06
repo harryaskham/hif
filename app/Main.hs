@@ -7,6 +7,7 @@ import EntityType
 import GameState
 import CovidGame
 import FourthGame
+import qualified ExampleGame as EG
 import Engine
 import Handler
 import Entity
@@ -23,7 +24,8 @@ import System.IO
 runApp :: App ()
 runApp = do
   --buildCovidGame
-  buildFourthGame
+  --buildFourthGame
+  EG.buildGame
   logT =<< describeCurrentTurn
   loop
   where

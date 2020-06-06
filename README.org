@@ -1,0 +1,9 @@
+* HIF: Haskell Interactive Fiction
+
+Interactive Fiction engine in Haskell and some games (~CovidGame.hs~ and ~FourthGame.hs~) using it.
+
+** Example Game
+
+The following example implements a simple game demonstrating most of the functionality:
+
+

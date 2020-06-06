@@ -33,6 +33,9 @@ import Text.Parsec.String (Parser)
 import Control.Monad (void)
 import Data.Char (isLetter, isDigit)
 
+registerGameBuilder :: App () -> App ()
+registerGameBuilder b = modify $ set gameBuilder (Just b)
+
 addAlert :: AlertID -> Alert -> App ()
 addAlert aID a = modify $ \s -> s & alerts %~ M.insert aID a
 
