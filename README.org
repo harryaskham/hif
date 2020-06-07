@@ -72,4 +72,7 @@ The following example implements a simple game demonstrating most of the functio
     addEatHandler necklace $ const do
         logT "You struggle, but manage to swallow the necklace whole."
         addAchievement $ Achievement "Fool's Gold" "You should fix up your diet..."
+
+  main :: IO ()
+  main = runWithBuilder buildGame
 #+END_SRC

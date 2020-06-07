@@ -21,11 +21,11 @@ import qualified Data.Text.IO as TIO
 import Control.Monad
 import System.IO
 
-runApp :: App ()
-runApp = do
-  --buildCovidGame
-  --buildFourthGame
-  EG.buildGame
+runApp :: App () -> App ()
+runApp builder = do
+  -- Construct game
+  builder
+ 
   logT =<< describeCurrentTurn
   loop
   where
@@ -47,8 +47,11 @@ runApp = do
            runInstruction instruction
            loop
 
-main :: IO ()
-main = do
+runWithBuilder :: App () -> IO ()
+runWithBuilder builder = do
   hSetBuffering stdout NoBuffering
-  _ <- runStateT runApp mkGameState
+  _ <- runStateT (runApp builder) mkGameState
   return ()
+
+main :: IO ()
+main = runWithBuilder EG.buildGame
