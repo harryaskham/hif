@@ -1,5 +1,7 @@
 * HIF: Haskell Interactive Fiction
 
+[[https://circleci.com/gh/harryaskham/hif.svg?style=svg][https://circleci.com/gh/harryaskham/hif]]
+
 Interactive Fiction engine in Haskell and some games (~CovidGame.hs~ and ~FourthGame.hs~) using it.
 
 Implements an ECS in which the game is built up incrementally inside the State monad.
