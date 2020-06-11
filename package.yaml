@@ -7,8 +7,7 @@ maintainer:          "harry@askham.ai"
 copyright:           "2020 Harry Askham"
 
 extra-source-files:
-- README.md
-- ChangeLog.md
+- README.org
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package

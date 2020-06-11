@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 161d19dfda66b7c76207b950f9d1e021d0ec9519a4f5651c7fa0660ca0ef47aa
+-- hash: 5f0c111babb5a6b093dc19a25943e1ce6e3ad7c1ceacc14b11b7b77f96928f20
 
 name:           hif
 version:        0.1.0.0
@@ -18,8 +18,7 @@ license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
-    README.md
-    ChangeLog.md
+    README.org
 
 source-repository head
   type: git
