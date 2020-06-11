@@ -7,6 +7,7 @@ import EntityType
 import GameState
 import CovidGame
 import FourthGame
+import qualified ExampleGame as EG
 import Engine
 import Entity
 import Instruction
@@ -39,6 +40,10 @@ checkPreds setup cs ps = do
             withCmds cs
             all (==True) <$> sequence ps
   (fst <$> runStateT g mkGameState) `shouldReturn` True
+
+lastInstructionFailed :: App Bool
+lastInstructionFailed =
+  (==Left InstructionError) <$> gets (view lastInstructionState)
 
 main :: IO ()
 main = hspec do
@@ -110,7 +115,7 @@ main = hspec do
         [ "n"
         , "talk to man"
         ]
-        [ (==Left InstructionError) <$> gets (view lastInstructionState) ]
+        [ lastInstructionFailed ]
 
     it "can talk to the man after arrival" do
       checkPreds
@@ -135,7 +140,7 @@ main = hspec do
         , "talk to man"
         , "talk to man"
         ]
-        [ (==Left InstructionError) <$> gets (view lastInstructionState) ]
+        [ lastInstructionFailed ]
 
   describe "FourthGame" do
     it "can do a bunch of things to the item" do
@@ -246,7 +251,7 @@ main = hspec do
         , "talk to monk"
         , "d"
         ]
-        [ (==Left InstructionError) <$> gets (view lastInstructionState) ]
+        [ lastInstructionFailed ]
 
     it "can win" do
       checkPreds
@@ -406,5 +411,25 @@ main = hspec do
         [ flushLog >> gets (view gameOver)
         , null <$> gets (view remainingAchievements)
         ]
+
+  describe "ExampleGame" do
+    it "is winnable" do
+      checkPreds
+        EG.buildGame
+        [ "go north"
+        , "get necklace"
+        , "wear necklace"
+        , "go north"
+        , "say end"
+        ]
+        [ gets (view gameOver) ]
+
+    it "can't be won without wearing the necklace" do
+      checkPreds
+        EG.buildGame
+        [ "go north"
+        , "go north"
+        ]
+        [ lastInstructionFailed ]
 
 --load n;get item;talk to item;drink item;eat item;turn on item;turn off item;w;look at trees;get paw;talk to monk;say fuck whatever is on your mind;wait;e;u;look at shelves;get book;s;break loop;talk to man;n;e;talk to woman;use cleaver on woman;use cleaver on self;w;d;w;use cleaver on trees;use cleaver on monk;e;u;e;give cleaver to woman;give paw to woman;look at cupboard;get outfit;w;d;w;remove clothes;wear outfit;use pen on book;talk to monk;wait

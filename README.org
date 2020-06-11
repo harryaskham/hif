@@ -78,3 +78,29 @@ The following example implements a simple game demonstrating most of the functio
   main :: IO ()
   main = runWithBuilder buildGame
 #+END_SRC
+
+We can write some nice declarative tests for the above as follows:
+
+#+BEGIN_SRC haskell
+    main :: IO ()
+    main = hspec do
+      describe "ExampleGame" do
+        it "is winnable" do
+          checkPreds
+            EG.buildGame
+            [ "go north"
+            , "get necklace"
+            , "wear necklace"
+            , "go north"
+            , "say end"
+            ]
+            [ gets (view gameOver) ]
+
+        it "can't be won without wearing the necklace" do
+          checkPreds
+            EG.buildGame
+            [ "go north"
+            , "go north"
+            ]
+            [ lastInstructionFailed ]
+#+END_SRC
