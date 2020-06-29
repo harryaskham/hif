@@ -9,9 +9,9 @@ import HIF.Engine
 import HIF.Entity
 import HIF.Instruction
 import HIF.InstructionType
-import qualified HIF.CovidGame as CG
-import qualified HIF.FourthGame as FG
-import qualified HIF.ExampleGame as EG
+import qualified HIF.Games.CovidGame as CG
+import qualified HIF.Games.FourthGame as FG
+import qualified HIF.Games.ExampleGame as EG
 
 import Test.Hspec
 import Test.QuickCheck

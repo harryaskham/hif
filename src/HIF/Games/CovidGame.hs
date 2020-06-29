@@ -2,7 +2,7 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module HIF.CovidGame where
+module HIF.Games.CovidGame where
 
 import HIF.Tools
 import HIF.GameState

@@ -2,13 +2,13 @@
 
 [[https://circleci.com/gh/harryaskham/hif][https://circleci.com/gh/harryaskham/hif.svg?style=svg]]
 
-Interactive Fiction engine in Haskell and some games (~CovidGame.hs~ and ~FourthGame.hs~) using it.
+Interactive Fiction engine in Haskell and some games (under ~HIF.Games~) using it.
 
 Implements an ECS in which the game is built up incrementally inside the State monad.
 
 ** Example Game
 
-The following example implements a simple game demonstrating most of the functionality. Click below to view a cast of the example code in action.
+The following example from ~HIF.Games.ExampleGame~ implements a simple game demonstrating most of the functionality. Click below to view a cast of the example code in action.
 
 [[https://asciinema.org/a/337073][https://asciinema.org/a/337073.png]]
 

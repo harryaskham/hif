@@ -1,7 +1,7 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module HIF.ExampleGame where
+module HIF.Games.ExampleGame where
 
 import HIF.Tools
 import HIF.GameState
