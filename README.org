@@ -27,11 +27,11 @@ The following example from ~HIF.Games.ExampleGame~ implements a simple game demo
 
     -- Add a simple constant description to the forest and the through-the-portal place.
     describeC
-        forest
-        "A thick, overgrown forest. Little sunlight penetrates the canopy overhead."
+      forest
+      "A thick, overgrown forest. Little sunlight penetrates the canopy overhead."
     describeC
-        unknown
-        "The land beyond the portal is strange beyond description. Say 'end' to conclude the game."
+      unknown
+      "The land beyond the portal is strange beyond description. Say 'end' to conclude the game."
 
     -- Create and describe the player.
     player <- mkPlayer "yourself" forest
@@ -49,16 +49,16 @@ The following example from ~HIF.Games.ExampleGame~ implements a simple game demo
     -- Whenever the description is called upon, the lambda will be called
     -- with an up-to-date view of the 'clearing' entity.
     describe clearing $ const do
-        wearingNecklace <- player `isWearing` necklace
-        if wearingNecklace
+      wearingNecklace <- player `isWearing` necklace
+      if wearingNecklace
         then return "A clearing in the forest. The necklace you found has caused a portal to open."
         else return "An unremarkable clearing in the otherwise dense forest."
 
     -- Add a watcher that opens and closes the portal based on the status of the necklace.
     -- All watchers trigger each turn.
     addWatcher do
-        wearingNecklace <- player `isWearing` necklace
-        if wearingNecklace
+      wearingNecklace <- player `isWearing` necklace
+      if wearingNecklace
         then unknown `isNorthOf` clearing
         else modifyEntity (set toNorth Nothing) clearing
 
@@ -69,9 +69,11 @@ The following example from ~HIF.Games.ExampleGame~ implements a simple game demo
     registerAchievement "Fool's Gold"
     modifyEntity (set edible Edible) necklace
     addEatHandler necklace $ const do
-        logT "You struggle, but manage to swallow the necklace whole."
-        addAchievement $ Achievement "Fool's Gold" "You should fix up your diet..."
+      logT "You struggle, but manage to swallow the necklace whole."
+      addAchievement $ Achievement "Fool's Gold" "You should fix up your diet..."
 
+
+  -- The below will kick off the game loop after constructing the above game.
   main :: IO ()
   main = runWithBuilder buildGame
 #+END_SRC
