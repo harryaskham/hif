@@ -5,11 +5,11 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Entity where
+module HIF.Entity where
 
-import Tools
-import EntityType
-import GameState
+import HIF.Tools
+import HIF.EntityType
+import HIF.GameState
 
 import Control.Lens
 import Control.Monad.State

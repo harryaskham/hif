@@ -2,16 +2,16 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module FourthGame where
+module HIF.FourthGame where
 
-import Tools
-import GameState
-import EntityType
-import Engine
-import Handler
-import Entity
-import Instruction
-import InstructionType
+import HIF.Tools
+import HIF.GameState
+import HIF.EntityType
+import HIF.Engine
+import HIF.Handler
+import HIF.Entity
+import HIF.Instruction
+import HIF.InstructionType
 
 import Control.Monad.State
 import qualified Data.Text as T

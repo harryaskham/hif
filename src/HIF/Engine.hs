@@ -6,12 +6,12 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE BlockArguments #-}
 
-module Engine where
+module HIF.Engine where
 
-import Tools
-import EntityType
-import GameState
-import Entity
+import HIF.Tools
+import HIF.EntityType
+import HIF.GameState
+import HIF.Entity
 
 import Control.Lens
 import Control.Monad.State

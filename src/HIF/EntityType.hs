@@ -5,9 +5,9 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RankNTypes #-}
 
-module EntityType where
+module HIF.EntityType where
 
-import Tools
+import HIF.Tools
 
 import Control.Lens
 import Control.Monad.State

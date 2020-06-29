@@ -1,4 +1,4 @@
-module Tools where
+module HIF.Tools where
 
 import Control.Lens
 import Data.Maybe

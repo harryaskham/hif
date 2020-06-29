@@ -3,15 +3,15 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Instruction where
+module HIF.Instruction where
 
-import Tools
-import EntityType
-import GameState
-import Entity
-import Engine
-import Handler
-import InstructionType
+import HIF.Tools
+import HIF.EntityType
+import HIF.GameState
+import HIF.Entity
+import HIF.Engine
+import HIF.Handler
+import HIF.InstructionType
 
 import Control.Lens
 import Control.Monad.State

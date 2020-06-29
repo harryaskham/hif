@@ -2,16 +2,16 @@
 
 module Main where
 
-import Tools
-import EntityType
-import GameState
-import CovidGame
-import FourthGame
-import qualified ExampleGame as EG
-import Engine
-import Handler
-import Entity
-import Instruction
+import HIF.Tools
+import HIF.EntityType
+import HIF.GameState
+import HIF.CovidGame
+import HIF.FourthGame
+import qualified HIF.ExampleGame as EG
+import HIF.Engine
+import HIF.Handler
+import HIF.Entity
+import HIF.Instruction
 
 import Control.Monad.IO.Class
 import Control.Monad.State

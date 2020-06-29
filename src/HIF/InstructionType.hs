@@ -5,10 +5,10 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RankNTypes #-}
 
-module InstructionType where
+module HIF.InstructionType where
 
-import Tools
-import EntityType
+import HIF.Tools
+import HIF.EntityType
 
 import Control.Lens
 import Control.Monad.State
