@@ -35,7 +35,7 @@ import Data.Maybe
 -- Sit, read, deface, examine verbs
 -- Per-game alias system for commonly written special cases
 
-buildFourthGame = do
+buildGame = do
   registerAchievement "Smartarse"
   registerAchievement "Pottymouth"
   registerAchievement "Model Student"

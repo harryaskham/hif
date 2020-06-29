@@ -23,7 +23,7 @@ import Control.Monad
 import Data.Maybe
 
 
-buildCovidGame = do
+buildGame = do
 
   -- Watchers
 

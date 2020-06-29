@@ -2,16 +2,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE BlockArguments #-}
 
-import Tools
-import EntityType
-import GameState
-import CovidGame
-import FourthGame
-import qualified ExampleGame as EG
-import Engine
-import Entity
-import Instruction
-import InstructionType
+import HIF.Tools
+import HIF.EntityType
+import HIF.GameState
+import HIF.Engine
+import HIF.Entity
+import HIF.Instruction
+import HIF.InstructionType
+import qualified HIF.CovidGame as CG
+import qualified HIF.FourthGame as FG
+import qualified HIF.ExampleGame as EG
 
 import Test.Hspec
 import Test.QuickCheck
@@ -50,7 +50,7 @@ main = hspec do
   describe "CovidGame" do
     it "wins the regular way" do
       checkPreds
-        buildCovidGame
+        CG.buildGame
         [ "get band"
         , "n"
         , "e"
@@ -66,7 +66,7 @@ main = hspec do
 
     it "gets the bad ending" do
       checkPreds
-        buildCovidGame
+        CG.buildGame
         [ "n"
         , "wait"
         , "wait"
@@ -79,7 +79,7 @@ main = hspec do
 
     it "gets the astral ending" do
       checkPreds
-        buildCovidGame
+        CG.buildGame
         [ "say STAY AT HOME. REMEMBER THE NHS. DEFY DEATH." ]
         [ gets (view gameOver)
         , hasAchievement "Simon Says"
@@ -87,7 +87,7 @@ main = hspec do
 
     it "gets wet clock cheev" do
       checkPreds
-        buildCovidGame
+        CG.buildGame
         [ "get clock"
         , "n"
         , "e"
@@ -98,7 +98,7 @@ main = hspec do
 
     it "gets ration cheev" do
       checkPreds
-        buildCovidGame
+        CG.buildGame
         [ "n"
         , "wait"
         , "wait"
@@ -111,7 +111,7 @@ main = hspec do
 
     it "cant talk to man before arrival" do
       checkPreds
-        buildCovidGame
+        CG.buildGame
         [ "n"
         , "talk to man"
         ]
@@ -119,7 +119,7 @@ main = hspec do
 
     it "can talk to the man after arrival" do
       checkPreds
-        buildCovidGame
+        CG.buildGame
         [ "n"
         , "wait"
         , "wait"
@@ -131,7 +131,7 @@ main = hspec do
 
     it "cant talk to the man twice" do
       checkPreds
-        buildCovidGame
+        CG.buildGame
         [ "n"
         , "wait"
         , "wait"
@@ -145,7 +145,7 @@ main = hspec do
   describe "FourthGame" do
     it "can do a bunch of things to the item" do
       sequence_
-        $ checkPreds buildFourthGame
+        $ checkPreds FG.buildGame
         <$> [ [ "n", "get item" ]
             , [ "n", "talk to item" ]
             , [ "n", "eat item" ]
@@ -158,7 +158,7 @@ main = hspec do
 
     it "can get the loop" do
       checkPreds
-        buildFourthGame
+        FG.buildGame
         [ "n"
         , "w"
         , "talk to monk"
@@ -169,7 +169,7 @@ main = hspec do
 
     it "cant break the loop elsewhere" do
       checkPreds
-        buildFourthGame
+        FG.buildGame
         [ "n"
         , "w"
         , "talk to monk"
@@ -181,7 +181,7 @@ main = hspec do
 
     it "can break the loop with the terrified man" do
       checkPreds
-        buildFourthGame
+        FG.buildGame
         [ "n"
         , "w"
         , "talk to monk"
@@ -199,7 +199,7 @@ main = hspec do
 
     it "can get the pen" do
       checkPreds
-        buildFourthGame
+        FG.buildGame
         [ "n"
         , "w"
         , "look at trees"
@@ -225,7 +225,7 @@ main = hspec do
 
     it "can reach the grating but cant pass" do
       checkPreds
-        buildFourthGame
+        FG.buildGame
         [ "n"
         , "w"
         , "look at trees"
@@ -255,7 +255,7 @@ main = hspec do
 
     it "can win" do
       checkPreds
-        buildFourthGame
+        FG.buildGame
         [ "n"
         , "w"
         , "look at trees"
@@ -290,7 +290,7 @@ main = hspec do
 
     it "gets model student" do
       checkPreds
-        buildFourthGame
+        FG.buildGame
         [ "n"
         , "w"
         , "look at trees"
@@ -325,7 +325,7 @@ main = hspec do
 
     it "has no delay if you win in the garden" do
       checkPreds
-        buildFourthGame
+        FG.buildGame
         [ "n"
         , "w"
         , "look at trees"
@@ -360,7 +360,7 @@ main = hspec do
 
     it "does a full cheev run" do
       checkPreds
-        buildFourthGame
+        FG.buildGame
         [ "n"
         , "get item"
         , "talk to item"

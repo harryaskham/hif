@@ -4,11 +4,11 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8d2bc16a086fa117c208d4034a4f2529fb537b03cf8a60934156c1a55dea9035
+-- hash: d7913ab3f03cd85c919c006fe189c0a3cd41ff92827f9cda04565d1a3511d799
 
 name:           hif
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/githubuser/hif#readme>
+description:    Please see the README on GitHub at <https://github.com/harryaskham/hif#readme>
 homepage:       https://github.com/harryaskham/hif#readme
 bug-reports:    https://github.com/harryaskham/hif/issues
 author:         Harry Askham

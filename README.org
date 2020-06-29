@@ -15,9 +15,6 @@ The following example implements a simple game demonstrating most of the functio
 #+BEGIN_SRC haskell
   buildGame :: App ()
   buildGame = do
-    -- Register the game builder, enabling rebuilding the world from scratch.
-    registerGameBuilder buildGame
-
     -- Create a few locations.
     forest <- mkLocation "forest"
     clearing <- mkLocation "clearing"
