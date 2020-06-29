@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 7b73517d7cdf94b7fb98a3e0da12a15802c9f99861e19b4ec34cb091b8da09c1
+-- hash: 8d2bc16a086fa117c208d4034a4f2529fb537b03cf8a60934156c1a55dea9035
 
 name:           hif
 version:        0.1.0.0
@@ -36,6 +36,7 @@ library
       HIF.Handler
       HIF.Instruction
       HIF.InstructionType
+      HIF.Runner
       HIF.Tools
   other-modules:
       Paths_hif

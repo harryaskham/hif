@@ -32,6 +32,7 @@ import Text.Parsec.Char
 import Text.Parsec.String (Parser)
 import Control.Monad (void)
 import Data.Char (isLetter, isDigit)
+import System.IO
 
 registerGameBuilder :: App () -> App ()
 registerGameBuilder b = modify $ set gameBuilder (Just b)

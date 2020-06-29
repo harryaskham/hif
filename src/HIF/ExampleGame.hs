@@ -24,9 +24,6 @@ import Data.Maybe
 
 buildGame :: App ()
 buildGame = do
-  -- Register the game builder, enabling rebuilding the world from scratch.
-  registerGameBuilder buildGame
-
   -- Create a few locations.
   forest <- mkLocation "forest"
   clearing <- mkLocation "clearing"

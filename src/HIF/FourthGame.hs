@@ -36,9 +36,6 @@ import Data.Maybe
 -- Per-game alias system for commonly written special cases
 
 buildFourthGame = do
-  -- Register the game builder
-  modify $ set gameBuilder (Just buildFourthGame)
-
   registerAchievement "Smartarse"
   registerAchievement "Pottymouth"
   registerAchievement "Model Student"
