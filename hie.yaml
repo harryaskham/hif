@@ -1,0 +1,13 @@
+cradle:
+  stack:
+    - path: "./src"
+      component: "hif:lib"
+
+    - path: "./app/Main.hs"
+      component: "hif:exe:hif-exe"
+
+    - path: "./app/Paths_hif.hs"
+      component: "hif:exe:hif-exe"
+
+    - path: "./test"
+      component: "hif:test:hif-test"
