@@ -3,8 +3,8 @@ version:             0.1.0.0
 github:              "harryaskham/hif"
 license:             BSD3
 author:              "Harry Askham"
-maintainer:          "harry@askham.ai"
-copyright:           "2020 Harry Askham"
+maintainer:          "harryaskham@gmail.com"
+copyright:           "2021 Harry Askham"
 
 extra-source-files:
 - README.org

@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.31.2.
+-- This file has been generated from package.yaml by hpack version 0.34.4.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 9d0de777bc352d184ac6073ed92e6ddbb3b1c66cc8d8815376c8f49e40aa27b0
+-- hash: c0ea33edad5b36843e5ddce629b267245b0917d32218cffe2f5572993bfc5668
 
 name:           hif
 version:        0.1.0.0
@@ -12,8 +12,8 @@ description:    Please see the README on GitHub at <https://github.com/harryaskh
 homepage:       https://github.com/harryaskham/hif#readme
 bug-reports:    https://github.com/harryaskham/hif/issues
 author:         Harry Askham
-maintainer:     harry@askham.ai
-copyright:      2020 Harry Askham
+maintainer:     harryaskham@gmail.com
+copyright:      2021 Harry Askham
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
