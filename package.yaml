@@ -44,9 +44,6 @@ _exe-defs: &exe-defaults
   - hif
 
 executables:
-  main-exe:
-    <<: *exe-defaults
-    main:                Main.hs
   example-exe:
     <<: *exe-defaults
     main:                Example.hs
