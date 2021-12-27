@@ -105,5 +105,6 @@ We can write some nice declarative tests for the above as follows:
 #+END_SRC
 
 ** TODOs
+- [ ] Separate binaries per game
 - [ ] Entities as ADTs with classes for e.g. Edible a, Combinable a b
 - [ ] Compile with Haste / GHCJS for web deployment
