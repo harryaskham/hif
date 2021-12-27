@@ -33,16 +33,29 @@ dependencies:
 library:
   source-dirs: src
 
+_exe-defs: &exe-defaults
+  source-dirs:         app
+  other-modules:       []
+  ghc-options:
+  - -threaded
+  - -rtsopts
+  - -with-rtsopts=-N
+  dependencies:
+  - hif
+
 executables:
-  hif-exe:
+  main-exe:
+    <<: *exe-defaults
     main:                Main.hs
-    source-dirs:         app
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - hif
+  example-exe:
+    <<: *exe-defaults
+    main:                Example.hs
+  covid-exe:
+    <<: *exe-defaults
+    main:                Covid.hs
+  fourth-exe:
+    <<: *exe-defaults
+    main:                Fourth.hs
 
 tests:
   hif-test:

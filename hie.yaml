@@ -3,11 +3,50 @@ cradle:
     - path: "./src"
       component: "hif:lib"
 
+    - path: "./app/Covid.hs"
+      component: "hif:exe:covid-exe"
+
+    - path: "./app/Example.hs"
+      component: "hif:exe:covid-exe"
+
+    - path: "./app/Fourth.hs"
+      component: "hif:exe:covid-exe"
+
     - path: "./app/Main.hs"
-      component: "hif:exe:hif-exe"
+      component: "hif:exe:covid-exe"
 
     - path: "./app/Paths_hif.hs"
-      component: "hif:exe:hif-exe"
+      component: "hif:exe:covid-exe"
+
+    - path: "./app/Example.hs"
+      component: "hif:exe:example-exe"
+
+    - path: "./app/Covid.hs"
+      component: "hif:exe:example-exe"
+
+    - path: "./app/Fourth.hs"
+      component: "hif:exe:example-exe"
+
+    - path: "./app/Main.hs"
+      component: "hif:exe:example-exe"
+
+    - path: "./app/Paths_hif.hs"
+      component: "hif:exe:example-exe"
+
+    - path: "./app/Fourth.hs"
+      component: "hif:exe:fourth-exe"
+
+    - path: "./app/Covid.hs"
+      component: "hif:exe:fourth-exe"
+
+    - path: "./app/Example.hs"
+      component: "hif:exe:fourth-exe"
+
+    - path: "./app/Main.hs"
+      component: "hif:exe:fourth-exe"
+
+    - path: "./app/Paths_hif.hs"
+      component: "hif:exe:fourth-exe"
 
     - path: "./test"
       component: "hif:test:hif-test"
