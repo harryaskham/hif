@@ -1,5 +1,6 @@
 #+TITLE: TODOs
 
+- [ ] Could host in ttyd / sharetty inside a container
 - [ ] The whole "namedObject" thing is really fragile; have a better way of getting the current view of a given object
   - Like a [x, y, z] = current [x, y, z] refresher
 - [ ] Entities as ADTs with classes for e.g. Edible a, Combinable a b, Droppable a
