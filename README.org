@@ -103,9 +103,3 @@ We can write some nice declarative tests for the above as follows:
             ]
             [ lastInstructionFailed ]
 #+END_SRC
-
-** TODOs
-- [ ] Entities as ADTs with classes for e.g. Edible a, Combinable a b, Droppable a
-- [ ] Compile with Haste / GHCJS for web deployment
-  - Can't use Haste with TemplateHaskell
-  - Can't use GHCJS with Stack

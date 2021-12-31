@@ -1,0 +1,21 @@
+#+TITLE: TODOs
+
+- [ ] The whole "namedObject" thing is really fragile; have a better way of getting the current view of a given object
+  - Like a [x, y, z] = current [x, y, z] refresher
+- [ ] Entities as ADTs with classes for e.g. Edible a, Combinable a b, Droppable a
+- [ ] Compile with Haste / GHCJS for web deployment
+  - Can't use Haste with TemplateHaskell
+    - Could remove TH / Lens but this is a lot of work
+  - Can't use GHCJS with Stack
+- [ ] Build-as-you-play mode?
+  - Make it easy to build the barebones of the game
+  - Entity descriptions stored in e.g. SQLite DB
+  - Being in a new place lets you set its description
+  - Looking at anything creates it, and sets a description
+    - e.g. look at [necklace, chain, jewellery] creates those aliases
+  - Any action is allowable, and doing it allows it
+    - e.g. "eat food" sets food edible, eats it
+  - Complex behaviour harder to model here:
+    - Handlers
+    - Achievements
+    - Dialogue
