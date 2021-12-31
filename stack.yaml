@@ -19,6 +19,7 @@
 # resolver: https://example.com/snapshots/2018-01-01.yaml
 resolver: lts-15.8
 nix:
+  enable: true
   # Contains 8.8.3
   path: ["nixpkgs=https://github.com/NixOS/nixpkgs-channels/archive/nixos-20.03.tar.gz"]
 
