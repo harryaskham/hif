@@ -19,10 +19,10 @@
 # resolver: https://example.com/snapshots/2018-01-01.yaml
 resolver: lts-15.8
 # TODO: nix broken on darwin
-nix:
-  enable: true
-  # Contains 8.8.3
-  path: ["nixpkgs=https://github.com/NixOS/nixpkgs-channels/archive/nixos-20.03.tar.gz"]
+# nix:
+#   enable: true
+#   # Contains 8.8.3
+#   path: ["nixpkgs=https://github.com/NixOS/nixpkgs-channels/archive/nixos-20.03.tar.gz"]
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
