@@ -1,16 +1,16 @@
 cradle:
-  stack:
-    - path: "./src"
-      component: "hif:lib"
+  cabal:
+    - path: "src"
+      component: "lib:hif"
 
-    - path: "./app/Covid.hs"
+    - path: "app/Covid.hs"
       component: "hif:exe:covid-exe"
 
-    - path: "./app/Example.hs"
+    - path: "app/Example.hs"
       component: "hif:exe:example-exe"
 
-    - path: "./app/Fourth.hs"
+    - path: "app/Fourth.hs"
       component: "hif:exe:fourth-exe"
 
-    - path: "./test"
+    - path: "test"
       component: "hif:test:hif-test"
