@@ -106,4 +106,4 @@ We can write some nice declarative tests for the above as follows:
 
 ** Building
 
-`stack run <bin-name>` should suffice; also `stack --nix` on Nix systems.
+`stack run <bin-name>` should suffice; also `stack --nix` on Nix systems (though `stack --nix ghci` is broken on macOS, a known issue).
