@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.4.
+-- This file has been generated from package.yaml by hpack version 0.34.6.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 7977ba635dd173d9d7899aeccabb5b9bb5c86ba2860e938e0f91430f2c429322
+-- hash: 0201d8f7f8eee732053a25d4b82f0529fca3be2dd617f48dbacdc6208cc14001
 
 name:           hif
 version:        0.1.0.0
@@ -37,6 +37,7 @@ library
       HIF.Instruction
       HIF.InstructionType
       HIF.Runner
+      HIF.Session
       HIF.Tools
   other-modules:
       Paths_hif
