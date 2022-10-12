@@ -20,6 +20,9 @@ data Session = Session
     _gameState :: GameState
   }
 
+mkSessionId :: IO SessionId
+mkSessionId = pure $ SessionId "todo replace me"
+
 mkSession :: App () -> IO Session
 mkSession builder = Session <$> mkSessionId <*> pure (runApp builder) <*> pure mkGameState
 
